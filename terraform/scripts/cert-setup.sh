@@ -250,21 +250,40 @@ fi
 
 log "Step 8: Final verification..."
 
-# Test HTTPS endpoints
-for host in "${HOSTNAMES[@]}"; do
-  fqdn="${host}.${DOMAIN_NAME}"
+# Test HTTPS endpoints - role specific
+if [ "${INSTANCE_ROLE}" = "clean" ]; then
+  for host in "${CLEAN_HOSTNAMES[@]}" "clientb"; do
+    fqdn="${host}.${DOMAIN_NAME}"
+    if curl -sf -o /dev/null --max-time 10 "https://${fqdn}"; then
+      log "OK: HTTPS ${fqdn} responds"
+    else
+      log "WARNING: HTTPS ${fqdn} not responding (may need DNS propagation)"
+    fi
+  done
+else
+  fqdn="clientc.${DOMAIN_NAME}"
   if curl -sf -o /dev/null --max-time 10 "https://${fqdn}"; then
     log "OK: HTTPS ${fqdn} responds"
   else
     log "WARNING: HTTPS ${fqdn} not responding (may need DNS propagation)"
   fi
-done
+fi
 
-# Test dummy listener
-if nc -z localhost 5432 2>/dev/null; then
-  log "OK: Dummy listener accepting connections on 5432"
+# Test dummy listener - role specific
+if [ "${INSTANCE_ROLE}" = "clientc" ]; then
+  if nc -z localhost 5432 2>/dev/null; then
+    log "OK: Dummy listener accepting connections on 5432"
+  else
+    log "WARNING: Dummy listener may not be running on Client C"
+    systemctl status paleon-dummy-listener.service --no-pager || true
+  fi
 else
-  log "WARNING: Dummy listener not accepting connections"
+  # On clean instances, the dummy listener must NOT be present; this is expected
+  if nc -z localhost 5432 2>/dev/null; then
+    log "FAIL: Unexpected dummy listener found on clean instance"
+  else
+    log "OK: No dummy listener on clean instance (expected)"
+  fi
 fi
 
 log "=== CERTIFICATE SETUP COMPLETE ==="

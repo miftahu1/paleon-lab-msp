@@ -215,9 +215,7 @@ WantedBy=multi-user.target
 EOF
 
 systemctl daemon-reload
-systemctl enable paleon-dns-poll.timer
-systemctl start paleon-dns-poll.timer
-log "Systemd units installed and DNS polling started"
+log "Systemd units installed"
 
 # Step 8 cert generation for B and C.
 log "Step 8: Generating client certificates"
@@ -286,6 +284,10 @@ for domain in "clientb.$${DOMAIN_NAME}" "clientc.$${DOMAIN_NAME}"; do
   log "Certificate details for $${domain}:"
   openssl x509 -in "$${SSL_DIR}/$${domain}.crt" -noout -dates -subject -issuer
 done
+
+# Enable and start DNS polling timer only AFTER self-signed certs exist
+systemctl enable paleon-dns-poll.timer
+systemctl start paleon-dns-poll.timer
 
 log "=== BOOTSTRAP COMPLETE ==="
 log "HTTP server running on port 80"

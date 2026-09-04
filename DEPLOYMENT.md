@@ -346,7 +346,7 @@ terraform destroy \
   -var="repo_url=https://github.com/user/msp.git"
 ```
 
-**Note**: This destroys the EC2 instance, EIP, Route53 zone, and security group. S3 state bucket is NOT destroyed (manual cleanup required).
+**Note**: This destroys the EC2 instances, EIPs, Route53 zone, and security groups. S3 state bucket is NOT destroyed (manual cleanup required).
 
 ---
 
@@ -355,17 +355,20 @@ terraform destroy \
 If resources already exist:
 
 ```bash
-# Import EC2 instance
-terraform import aws_instance.msp i-0123456789abcdef0
+# Import EC2 instances
+terraform import aws_instance.clean i-0123456789abcdef0
+terraform import aws_instance.clientc i-0fedcba9876543210
 
-# Import Elastic IP
-terraform import aws_eip.msp eipalloc-0123456789abcdef0
+# Import Elastic IPs
+terraform import aws_eip.clean eipalloc-0123456789abcdef0
+terraform import aws_eip.clientc eipalloc-0fedcba9876543210
 
 # Import Route53 zone
 terraform import aws_route53_zone.msp Z123456789ABCDEF
 
-# Import Security Group
-terraform import aws_security_group.msp sg-0123456789abcdef0
+# Import Security Groups
+terraform import aws_security_group.clean sg-0123456789abcdef0
+terraform import aws_security_group.clientc sg-0fedcba9876543210
 ```
 
 Then run `terraform plan` to reconcile.

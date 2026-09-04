@@ -109,8 +109,13 @@ check_cert() {
   local port="${2:-443}"
 
   verbose "Checking certificate for $hostname:$port"
-  echo | openssl s_client -connect "$hostname:$port" -servername "$hostname" -verify_return_error 2>/dev/null | \
-    openssl x509 -noout -dates -subject -issuer 2>/dev/null
+  cert_pem=$( { echo | openssl s_client -connect "$hostname:$port" -servername "$hostname" -showcerts 2>/dev/null || true; } )
+  cert_pem=$(echo "$cert_pem" | sed -n '/-----BEGIN CERTIFICATE-----/,/-----END CERTIFICATE-----/p' | sed -n '1,200p' )
+  if [[ -z "${cert_pem}" ]]; then
+    return 1
+  fi
+  echo "$cert_pem" | openssl x509 -noout -dates -subject -issuer -ext subjectAltName 2>/dev/null || true
+  return 0
 }
 
 # Parse certificate expiration
@@ -122,6 +127,59 @@ parse_cert_expiry() {
   fi
 }
 
+# Determine certificate properties (validity, expired, self-signed)
+analyze_certificate() {
+  local certfile_or_pem="$1"
+  local notbefore notafter subject issuer san
+  # read from file or stdin
+  if [[ -f "$certfile_or_pem" ]]; then
+    cert_text=$(openssl x509 -in "$certfile_or_pem" -noout -dates -subject -issuer -ext subjectAltName 2>/dev/null || true)
+  else
+    cert_text=$(echo "$certfile_or_pem" | openssl x509 -noout -dates -subject -issuer -ext subjectAltName 2>/dev/null || true)
+  fi
+
+  notbefore=$(echo "$cert_text" | grep "notBefore=" | cut -d= -f2- || true)
+  notafter=$(echo "$cert_text" | grep "notAfter=" | cut -d= -f2- || true)
+  subject=$(echo "$cert_text" | grep "subject=" | sed -E 's/^subject=//' | sed -e 's/^[[:space:]]*//')
+  issuer=$(echo "$cert_text" | grep "issuer=" | sed -E 's/^issuer=//' | sed -e 's/^[[:space:]]*//')
+  san=$(echo "$cert_text" | sed -n '/X509v3 Subject Alternative Name:/,/^$/p' | tr -d '\n' | sed -e 's/X509v3 Subject Alternative Name://')
+
+  # expiry handling
+  if [[ -n "$notafter" ]]; then
+    expiry_epoch=$(date -d "$notafter" +%s 2>/dev/null || date -j -f "%b %d %H:%M:%S %Y %Z" "$notafter" +%s 2>/dev/null || echo 0)
+  else
+    expiry_epoch=0
+  fi
+
+  now=$(date +%s)
+  expired=false
+  expiring=false
+  if [[ $expiry_epoch -gt 0 ]]; then
+    if [[ $expiry_epoch -lt $now ]]; then
+      expired=true
+    elif [[ $((expiry_epoch - now)) -le $((10*24*3600)) ]]; then
+      expiring=true
+    fi
+  fi
+
+  # self-signed detection: subject equals issuer
+  self_signed=false
+  if [[ -n "$subject" && -n "$issuer" ]]; then
+    if [[ "$subject" == "$issuer" ]]; then
+      self_signed=true
+    fi
+  fi
+
+  # Print a concise summary to stdout for caller
+  echo "notBefore=$notbefore"
+  echo "notAfter=$notafter"
+  echo "subject=$subject"
+  echo "issuer=$issuer"
+  echo "san=$san"
+  echo "expired=$expired"
+  echo "expiring=$expiring"
+  echo "self_signed=$self_signed"
+}
 # ============================================================================
 # VERIFICATION START
 # ============================================================================
@@ -154,14 +212,33 @@ done
 # --- 1. DNS Resolution ---
 log_section "DNS Resolution"
 
+# Ensure expected IPs are defined safely before use
+if [[ -z "${EXPECTED_CLEAN_IP:-}" || -z "${EXPECTED_CLIENTC_IP:-}" ]]; then
+  log_fail "EXPECTED_CLEAN_IP and EXPECTED_CLIENTC_IP must be set (export or pass via env)"
+  exit 1
+fi
+
 for fqdn in "${FQDNS[@]}"; do
   log_info "Resolving $fqdn..."
   resolved=$(dig +short "$fqdn" A | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' | head -1)
 
   if [[ -z "$resolved" ]]; then
     log_fail "$fqdn - No A record found"
-  elif [[ -n "$EXPECTED_IP" && "$resolved" != "$EXPECTED_IP" ]]; then
-    log_fail "$fqdn -> $resolved (expected $EXPECTED_IP)"
+    continue
+  fi
+
+  # Determine expected IP per-host
+  case "$fqdn" in
+    "msp.$DOMAIN"|"clienta.$DOMAIN"|"clientb.$DOMAIN"|"clientd.$DOMAIN")
+      expect_ip="$EXPECTED_CLEAN_IP" ;;
+    "clientc.$DOMAIN")
+      expect_ip="$EXPECTED_CLIENTC_IP" ;;
+    *)
+      expect_ip="" ;;
+  esac
+
+  if [[ -n "$expect_ip" && "$resolved" != "$expect_ip" ]]; then
+    log_fail "$fqdn -> $resolved (expected $expect_ip)"
   else
     log_pass "$fqdn -> $resolved"
   fi

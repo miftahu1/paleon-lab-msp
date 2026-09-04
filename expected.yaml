@@ -382,6 +382,84 @@ header_expectations:
       - "Permissions-Policy: geolocation=(), microphone=(), camera=()"
     must_not_miss: []
 
+# Canonical detections list (single authoritative list used by scanner)
+detections:
+  - id: "clientb-tls-expiring"
+    category: "tls"
+    target: "clientb.paleon-lab-msp.com"
+    expect:
+      type: "self_signed"
+      days_until_expiry: 10
+    severity: "medium"
+    claim: "Self-signed certificate for clientb.paleon-lab-msp.com expires within ~10 days"
+
+  - id: "clientb-missing-x-content-type-options"
+    category: "http_headers"
+    target: "clientb.paleon-lab-msp.com"
+    expect:
+      header_missing: "X-Content-Type-Options"
+    severity: "low"
+    claim: "X-Content-Type-Options header intentionally missing for clientb.paleon-lab-msp.com"
+
+  - id: "clientc-tls-expired"
+    category: "tls"
+    target: "clientc.paleon-lab-msp.com"
+    expect:
+      type: "self_signed"
+      status: "expired"
+    severity: "high"
+    claim: "Self-signed certificate for clientc.paleon-lab-msp.com is expired (notAfter in the past)"
+
+  - id: "clientc-missing-hsts"
+    category: "http_headers"
+    target: "clientc.paleon-lab-msp.com"
+    expect:
+      header_missing: "Strict-Transport-Security"
+    severity: "medium"
+    claim: "Strict-Transport-Security header missing for clientc.paleon-lab-msp.com"
+
+  - id: "clientc-missing-csp"
+    category: "http_headers"
+    target: "clientc.paleon-lab-msp.com"
+    expect:
+      header_missing: "Content-Security-Policy"
+    severity: "medium"
+    claim: "Content-Security-Policy header missing for clientc.paleon-lab-msp.com"
+
+  - id: "clientc-dmarc-p-none"
+    category: "dns_email"
+    target: "clientc.paleon-lab-msp.com"
+    expect:
+      dmarc_policy: "p=none"
+    severity: "medium"
+    claim: "DMARC policy for clientc.paleon-lab-msp.com is set to p=none"
+
+  - id: "clientc-exposed-git-head"
+    category: "exposed_files"
+    target: "clientc.paleon-lab-msp.com"
+    expect:
+      path: "/.git/HEAD"
+    severity: "medium"
+    claim: "The .git/HEAD file is publicly accessible on clientc.paleon-lab-msp.com"
+
+  - id: "clientc-exposed-git-config"
+    category: "exposed_files"
+    target: "clientc.paleon-lab-msp.com"
+    expect:
+      path: "/.git/config"
+    severity: "high"
+    claim: "The .git/config file is publicly accessible on clientc.paleon-lab-msp.com"
+
+  - id: "clientc-open-port-5432"
+    category: "open_ports"
+    target: "clientc.paleon-lab-msp.com"
+    expect:
+      port: 5432
+      protocol: "tcp"
+      banner_contains: "PostgreSQL"
+    severity: "medium"
+    claim: "TCP port 5432 is open on clientc.paleon-lab-msp.com and responds with a PostgreSQL banner"
+
 # DNS/Email expectations
 dns_email_expectations:
   - hostname: "msp.paleon-lab-msp.com"
