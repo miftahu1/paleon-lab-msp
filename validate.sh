@@ -535,10 +535,11 @@ else
 fi
 
 if grep -q 'for host in msp clienta clientb clientd; do' terraform/user_data.sh && \
-   grep -q 'for host in msp clienta clientb clientd; do' terraform/scripts/cert-setup.sh; then
-  log_pass "Clean role is limited to msp clienta clientb clientd"
+   grep -q 'CLEAN_HOSTNAMES' terraform/scripts/cert-setup.sh && \
+   ! grep -q 'CLEAN_HOSTNAMES.*clientb' terraform/scripts/cert-setup.sh; then
+  log_pass "Clean role enables final HTTPS for msp clienta clientb clientd; certbot requests only for msp clienta clientd"
 else
-  log_fail "Clean role must not include clientc in enablement loops"
+  log_fail "Clean role loops incorrect: user_data should enable clientb; cert-setup should not request certbot for clientb"
 fi
 
 if grep -qE "ln -sf.*clientc.conf" terraform/user_data.sh && \

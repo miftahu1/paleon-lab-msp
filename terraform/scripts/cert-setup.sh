@@ -18,7 +18,9 @@ EXPECTED_CLIENTC_IP="EXPECTED_CLIENTC_IP_PLACEHOLDER"
 INSTANCE_ROLE="INSTANCE_ROLE_PLACEHOLDER"
 
 HOSTNAMES=("msp" "clienta" "clientb" "clientc" "clientd")
-CLEAN_HOSTNAMES=("msp" "clienta" "clientb" "clientd")
+# Clean instance: only request Let's Encrypt for msp, clienta, clientd
+CLEAN_HOSTNAMES=("msp" "clienta" "clientd")
+# Self-signed certs live for clientb and clientc (clientc is expired)
 SELF_SIGNED_HOSTNAMES=("clientb" "clientc")
 
 # Paths
@@ -84,25 +86,30 @@ fi
 
 if [ "${INSTANCE_ROLE}" = "clean" ]; then
   log "Step 2: Requesting Let's Encrypt certificates for clean clients..."
-  DOMAIN_ARGS=()
+
+  # Use webroot mode and request certificates per-host to ensure
+  # /etc/letsencrypt/live/<fqdn>/ directories are created individually
+  LETSENCRYPT_WEBROOT="${WEBSITE_ROOT}/letsencrypt"
+  mkdir -p "${LETSENCRYPT_WEBROOT}"
+
   for host in "${CLEAN_HOSTNAMES[@]}"; do
-    DOMAIN_ARGS+=("-d" "${host}.${DOMAIN_NAME}")
+    fqdn="${host}.${DOMAIN_NAME}"
+    log "Requesting Let's Encrypt cert for ${fqdn}"
+
+    if ! certbot certonly \
+      --webroot -w "${LETSENCRYPT_WEBROOT}" \
+      -d "${fqdn}" \
+      --non-interactive \
+      --agree-tos \
+      --email "admin@${DOMAIN_NAME}" \
+      --no-eff-email \
+      --keep-until-expiring; then
+      log "ERROR: Certbot failed for ${fqdn}"
+      exit 1
+    fi
+
+    log "Let's Encrypt certificate obtained for ${fqdn}"
   done
-
-  if ! certbot certonly \
-    --nginx \
-    "${DOMAIN_ARGS[@]}" \
-    --non-interactive \
-    --agree-tos \
-    --email "admin@${DOMAIN_NAME}" \
-    --redirect \
-    --no-eff-email \
-    --keep-until-expiring; then
-    log "ERROR: Certbot failed"
-    exit 1
-  fi
-
-  log "Let's Encrypt certificates obtained"
 else
   log "Step 2: Client C instance does not request Let's Encrypt certificates."
 fi
@@ -183,6 +190,8 @@ else
   done
 fi
 
+
+# Ensure default is removed
 rm -f "${NGINX_ENABLED}/default"
 
 log "HTTPS configs deployed"
@@ -259,7 +268,15 @@ else
 fi
 
 log "=== CERTIFICATE SETUP COMPLETE ==="
-log "HTTPS active for all hostnames"
-log "Self-signed certs: Client B (expiring), Client C (expired)"
-log "Let's Encrypt certs: MSP, Client A, Client D"
-log "Dummy listener running on port 5432"
+if [ "${INSTANCE_ROLE}" = "clean" ]; then
+  log "HTTPS active for: ${CLEAN_HOSTNAMES[*]} and Client B (self-signed)"
+  log "Self-signed certs: Client B (expiring)"
+  log "Let's Encrypt certs: ${CLEAN_HOSTNAMES[*]}"
+  log "Dummy listener not enabled on clean instance"
+elif [ "${INSTANCE_ROLE}" = "clientc" ]; then
+  log "HTTPS active only for: clientc (self-signed expired)"
+  log "Self-signed certs: Client C (expired)"
+  log "Dummy listener active on port 5432"
+else
+  log "HTTPS/Certificate setup complete for role: ${INSTANCE_ROLE}"
+fi

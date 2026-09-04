@@ -100,13 +100,36 @@ done
 
 if [ "${ALL_RESOLVED}" = true ]; then
   log "SUCCESS: All hostnames resolve to expected exact IPs"
-  touch "${SUCCESS_FILE}"
-  log "Triggering certificate setup..."
+  log "Triggering certificate setup service..."
+  # Start the cert setup service and wait for it to finish. Only on
+  # successful outcome do we create the success file and disable the timer.
   systemctl start paleon-cert-setup.service
-  log "Disabling DNS polling timer"
-  systemctl stop paleon-dns-poll.timer
-  systemctl disable paleon-dns-poll.timer
-  exit 0
+
+  # Wait for service to reach exited/failed or until timeout
+  wait_seconds=60
+  elapsed=0
+  while [ ${elapsed} -lt ${wait_seconds} ]; do
+    substate=$(systemctl show -p SubState --value paleon-cert-setup.service 2>/dev/null || true)
+    if [ "${substate}" = "exited" ] || [ "${substate}" = "failed" ] || [ "${substate}" = "dead" ]; then
+      break
+    fi
+    sleep 1
+    elapsed=$((elapsed + 1))
+  done
+
+  exec_status=$(systemctl show -p ExecMainStatus --value paleon-cert-setup.service 2>/dev/null || echo 1)
+  if [ "${exec_status}" = "0" ]; then
+    log "Certificate setup service completed successfully (exit ${exec_status})"
+    touch "${SUCCESS_FILE}"
+    log "Disabling DNS polling timer"
+    systemctl stop paleon-dns-poll.timer
+    systemctl disable paleon-dns-poll.timer
+    exit 0
+  else
+    log "ERROR: Certificate setup service failed (exit ${exec_status}). Will retry on next poll."
+    systemctl status paleon-cert-setup.service --no-pager || true
+    exit 1
+  fi
 else
   log "FAILURE: Some hostnames not resolved correctly"
   for failed in "${FAILED_HOSTS[@]}"; do

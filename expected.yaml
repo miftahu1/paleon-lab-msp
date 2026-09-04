@@ -297,6 +297,10 @@ port_expectations:
 
 # Certificate expectations
 certificate_expectations:
+  # Note: Client B and Client C use self-signed certificates. Scanner
+  # implementations may report these as untrusted/self-signed in their
+  # TLS findings; this is expected and intentional for the lab.
+
   - hostname: "msp.paleon-lab-msp.com"
     type: "letsencrypt"
     status: "valid_trusted"

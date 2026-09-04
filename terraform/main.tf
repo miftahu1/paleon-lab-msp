@@ -316,7 +316,8 @@ resource "aws_route53_record" "dmarc" {
 
 resource "aws_route53_record" "caa" {
   zone_id = aws_route53_zone.msp.zone_id
-  name    = "@"
+  # Use empty name for zone apex (avoid creating a literal "@" subdomain)
+  name    = ""
   type    = "CAA"
   ttl     = 300
   records = [
