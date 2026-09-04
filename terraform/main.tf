@@ -33,7 +33,6 @@ data "aws_ami" "ubuntu_2404" {
   }
 }
 
-# Default VPC (or create dedicated if needed)
 data "aws_vpc" "default" {
   default = true
 }
@@ -45,32 +44,37 @@ data "aws_subnets" "default" {
   }
 }
 
-# First available subnet in default VPC
 data "aws_subnet" "selected" {
   id = data.aws_subnets.default.ids[0]
 }
 
 ##############################
-# Elastic IP
+# Elastic IPs
 ##############################
 
-resource "aws_eip" "msp" {
+resource "aws_eip" "clean" {
   domain = "vpc"
   tags = merge(var.tags, {
-    Name = "paleon-site5-eip"
+    Name = "paleon-site5-clean-eip"
+  })
+}
+
+resource "aws_eip" "clientc" {
+  domain = "vpc"
+  tags = merge(var.tags, {
+    Name = "paleon-site5-clientc-eip"
   })
 }
 
 ##############################
-# Security Group
+# Security Groups
 ##############################
 
-resource "aws_security_group" "msp" {
-  name        = "paleon-site5-sg"
-  description = "Security group for Paleon Site 5 MSP estate"
+resource "aws_security_group" "clean" {
+  name        = "paleon-site5-clean-sg"
+  description = "Security group for the MSP and clean clients"
   vpc_id      = data.aws_vpc.default.id
 
-  # HTTP - Public
   ingress {
     from_port   = 80
     to_port     = 80
@@ -79,7 +83,6 @@ resource "aws_security_group" "msp" {
     description = "HTTP redirect to HTTPS"
   }
 
-  # HTTPS - Public
   ingress {
     from_port   = 443
     to_port     = 443
@@ -88,16 +91,6 @@ resource "aws_security_group" "msp" {
     description = "HTTPS"
   }
 
-  # Intentional Database Port (PostgreSQL) - Public for Client C test
-  ingress {
-    from_port   = 5432
-    to_port     = 5432
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-    description = "Dummy PostgreSQL listener for Client C neglected test"
-  }
-
-  # SSH - Restricted to admin IP(s)
   ingress {
     from_port   = 22
     to_port     = 22
@@ -106,7 +99,6 @@ resource "aws_security_group" "msp" {
     description = "SSH management access"
   }
 
-  # Egress - Allow all outbound (for package updates, Let's Encrypt, DNS)
   egress {
     from_port   = 0
     to_port     = 0
@@ -116,30 +108,78 @@ resource "aws_security_group" "msp" {
   }
 
   tags = merge(var.tags, {
-    Name = "paleon-site5-sg"
+    Name = "paleon-site5-clean-sg"
+  })
+}
+
+resource "aws_security_group" "clientc" {
+  name        = "paleon-site5-clientc-sg"
+  description = "Security group for the neglected Client C host"
+  vpc_id      = data.aws_vpc.default.id
+
+  ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "HTTP redirect to HTTPS"
+  }
+
+  ingress {
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "HTTPS"
+  }
+
+  ingress {
+    from_port   = 5432
+    to_port     = 5432
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "Dummy PostgreSQL listener for Client C only"
+  }
+
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = concat([var.admin_ip_cidr], var.ssh_allowed_cidrs)
+    description = "SSH management access"
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "All outbound"
+  }
+
+  tags = merge(var.tags, {
+    Name = "paleon-site5-clientc-sg"
   })
 }
 
 ##############################
-# EC2 Instance
+# EC2 Instances
 ##############################
 
-resource "aws_instance" "msp" {
+resource "aws_instance" "clean" {
   ami                         = data.aws_ami.ubuntu_2404.id
   instance_type               = var.instance_type
   key_name                    = var.ssh_key_name
   subnet_id                   = data.aws_subnet.selected.id
-  vpc_security_group_ids      = [aws_security_group.msp.id]
-  associate_public_ip_address = false # We use EIP
+  vpc_security_group_ids      = [aws_security_group.clean.id]
+  associate_public_ip_address = false
 
-  # IMDSv2 Required
   metadata_options {
     http_endpoint               = "enabled"
     http_tokens                 = "required"
     http_put_response_hop_limit = 2
   }
 
-  # Root volume
   root_block_device {
     volume_type           = "gp3"
     volume_size           = 20
@@ -147,29 +187,69 @@ resource "aws_instance" "msp" {
     delete_on_termination = true
   }
 
-  # User data - rendered from template
   user_data = templatefile("${path.module}/user_data.sh", {
-    repo_url    = var.repo_url
-    domain_name = var.domain_name
-    expected_ip = aws_eip.msp.public_ip
-    aws_region  = var.aws_region
+    repo_url            = var.repo_url
+    domain_name         = var.domain_name
+    expected_clean_ip   = aws_eip.clean.public_ip
+    expected_clientc_ip = aws_eip.clientc.public_ip
+    aws_region          = var.aws_region
   })
 
   tags = merge(var.tags, {
-    Name = "paleon-site5-msp"
+    Name = "paleon-site5-clean"
   })
 
-  # Ensure EIP is associated after instance creation
-  depends_on = [aws_eip.msp]
+  depends_on = [aws_eip.clean, aws_eip.clientc]
+}
+
+resource "aws_instance" "clientc" {
+  ami                         = data.aws_ami.ubuntu_2404.id
+  instance_type               = var.instance_type
+  key_name                    = var.ssh_key_name
+  subnet_id                   = data.aws_subnet.selected.id
+  vpc_security_group_ids      = [aws_security_group.clientc.id]
+  associate_public_ip_address = false
+
+  metadata_options {
+    http_endpoint               = "enabled"
+    http_tokens                 = "required"
+    http_put_response_hop_limit = 2
+  }
+
+  root_block_device {
+    volume_type           = "gp3"
+    volume_size           = 20
+    encrypted             = true
+    delete_on_termination = true
+  }
+
+  user_data = templatefile("${path.module}/user_data.sh", {
+    repo_url            = var.repo_url
+    domain_name         = var.domain_name
+    expected_clean_ip   = aws_eip.clean.public_ip
+    expected_clientc_ip = aws_eip.clientc.public_ip
+    aws_region          = var.aws_region
+  })
+
+  tags = merge(var.tags, {
+    Name = "paleon-site5-clientc"
+  })
+
+  depends_on = [aws_eip.clean, aws_eip.clientc]
 }
 
 ##############################
-# EIP Association
+# EIP Associations
 ##############################
 
-resource "aws_eip_association" "msp" {
-  instance_id   = aws_instance.msp.id
-  allocation_id = aws_eip.msp.id
+resource "aws_eip_association" "clean" {
+  instance_id   = aws_instance.clean.id
+  allocation_id = aws_eip.clean.id
+}
+
+resource "aws_eip_association" "clientc" {
+  instance_id   = aws_instance.clientc.id
+  allocation_id = aws_eip.clientc.id
 }
 
 ##############################
@@ -178,50 +258,44 @@ resource "aws_eip_association" "msp" {
 
 resource "aws_route53_zone" "msp" {
   name = var.domain_name
-
-  # DNSSEC is configured separately if needed (requires KMS key)
-  # Not enabled by default for simplicity
 }
 
 ##############################
 # Route 53 Records
 ##############################
 
-# A records for all hostnames pointing to EIP
 resource "aws_route53_record" "hostnames" {
-  for_each = toset([
-    "msp",
-    "clienta",
-    "clientb",
-    "clientc",
-    "clientd"
-  ])
+  for_each = {
+    msp     = aws_eip.clean.public_ip
+    clienta = aws_eip.clean.public_ip
+    clientb = aws_eip.clean.public_ip
+    clientd = aws_eip.clean.public_ip
+    clientc = aws_eip.clientc.public_ip
+  }
 
   zone_id = aws_route53_zone.msp.zone_id
   name    = each.key
   type    = "A"
   ttl     = 300
-  records = [aws_eip.msp.public_ip]
+  records = [each.value]
 }
 
-# SPF records for each subdomain
 resource "aws_route53_record" "spf" {
-  for_each = toset([
-    "msp",
-    "clienta",
-    "clientb",
-    "clientc",
-    "clientd"
-  ])
+  for_each = {
+    msp     = aws_eip.clean.public_ip
+    clienta = aws_eip.clean.public_ip
+    clientb = aws_eip.clean.public_ip
+    clientd = aws_eip.clean.public_ip
+    clientc = aws_eip.clientc.public_ip
+  }
 
   zone_id = aws_route53_zone.msp.zone_id
   name    = each.key
   type    = "TXT"
   ttl     = 300
-  records = ["\"v=spf1 ip4:${aws_eip.msp.public_ip} -all\""]
+  records = ["v=spf1 ip4:${each.value} -all"]
 }
 
-# DMARC records for each subdomain
 resource "aws_route53_record" "dmarc" {
   for_each = {
     msp     = "v=DMARC1; p=reject; rua=mailto:dmarc@msp.example; ruf=mailto:dmarc@msp.example; sp=reject; adkim=s; aspf=s"
@@ -235,65 +309,19 @@ resource "aws_route53_record" "dmarc" {
   name    = "_dmarc.${each.key}"
   type    = "TXT"
   ttl     = 300
-  records = ["\"${each.value}\""]
+  records = [each.value]
 }
 
-# CAA record (optional but recommended)
 resource "aws_route53_record" "caa" {
-  count = var.enable_dnssec ? 1 : 0
-
   zone_id = aws_route53_zone.msp.zone_id
   name    = "@"
   type    = "CAA"
   ttl     = 300
-  records = ["0 issue \"letsencrypt.org\""]
+  records = [
+    "0 issue \"letsencrypt.org\"",
+    "0 issuewild \"letsencrypt.org\""
+  ]
 }
-
-##############################
-# S3 Bucket for Terraform State (Bootstrap)
-# Note: This is created separately via bootstrap script
-# Included here for reference - DO NOT create if bucket exists
-##############################
-
-# resource "aws_s3_bucket" "terraform_state" {
-#   bucket = "paleon-site5-terraform-state-${random_id.suffix.hex}"
-#
-#   server_side_encryption_configuration {
-#     rule {
-#       apply_server_side_encryption_by_default {
-#         sse_algorithm = "AES256"
-#       }
-#     }
-#   }
-#
-#   versioning {
-#     enabled = true
-#   }
-#
-#   lifecycle {
-#     prevent_destroy = true
-#   }
-# }
-#
-# resource "aws_s3_bucket_public_access_block" "terraform_state" {
-#   bucket = aws_s3_bucket.terraform_state.id
-#
-#   block_public_acls       = true
-#   block_public_policy     = true
-#   ignore_public_acls      = true
-#   restrict_public_buckets = true
-# }
-#
-# resource "aws_dynamodb_table" "terraform_locks" {
-#   name         = "paleon-site5-terraform-locks"
-#   billing_mode = "PAY_PER_REQUEST"
-#   hash_key     = "LockID"
-#
-#   attribute {
-#     name = "LockID"
-#     type = "S"
-#   }
-# }
 
 ##############################
 # Random ID for unique bucket name (if needed)

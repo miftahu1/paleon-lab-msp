@@ -25,9 +25,9 @@ WARN=0
 
 # Helper functions
 log_info() { echo -e "${BLUE}[INFO]${NC} $*"; }
-log_pass() { echo -e "${GREEN}[PASS]${NC} $*"; ((PASS++)); }
-log_fail() { echo -e "${RED}[FAIL]${NC} $*"; ((FAIL++)); }
-log_warn() { echo -e "${YELLOW}[WARN]${NC} $*"; ((WARN++)); }
+log_pass() { echo -e "${GREEN}[PASS]${NC} $*"; PASS=$((PASS + 1)); }
+log_fail() { echo -e "${RED}[FAIL]${NC} $*"; FAIL=$((FAIL + 1)); }
+log_warn() { echo -e "${YELLOW}[WARN]${NC} $*"; WARN=$((WARN + 1)); }
 log_section() { echo -e "\n${CYAN}=== $* ===${NC}"; }
 
 verbose() {
@@ -107,6 +107,32 @@ parse_cert_expiry() {
   fi
 }
 
+print_host_ip_status() {
+  local fqdn="$1"
+  local expected_clean_ip="$2"
+  local expected_clientc_ip="$3"
+  local resolved
+  resolved=$(dig +short "$fqdn" A | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' | head -1)
+
+  if [[ -z "$resolved" ]]; then
+    log_fail "$fqdn - No A record found"
+    return 1
+  fi
+
+  local expected_ip="$expected_clean_ip"
+  if [[ "$fqdn" == "clientc.$DOMAIN" ]]; then
+    expected_ip="$expected_clientc_ip"
+  fi
+
+  if [[ -n "$expected_ip" && "$resolved" != "$expected_ip" ]]; then
+    log_fail "$fqdn -> $resolved (expected $expected_ip)"
+    return 1
+  fi
+
+  log_pass "$fqdn -> $resolved"
+  return 0
+}
+
 # ============================================================================
 # VERIFICATION START
 # ============================================================================
@@ -116,7 +142,13 @@ echo "Paleon Test Site 5 - Post-Deployment Verification"
 echo "====================================================================="
 echo "Domain: $DOMAIN"
 if [[ -n "$EXPECTED_IP" ]]; then
-  echo "Expected IP: $EXPECTED_IP"
+  read -r -a EXPECTED_IPS <<< "$EXPECTED_IP"
+  EXPECTED_CLEAN_IP="${EXPECTED_IPS[0]:-}"
+  EXPECTED_CLIENTC_IP="${EXPECTED_IPS[1]:-}"
+  echo "Expected IP(s): ${EXPECTED_CLEAN_IP:-<unset>} / ${EXPECTED_CLIENTC_IP:-<unset>}"
+else
+  EXPECTED_CLEAN_IP=""
+  EXPECTED_CLIENTC_IP=""
 fi
 echo "Timestamp: $(date)"
 echo ""
@@ -140,15 +172,7 @@ log_section "DNS Resolution"
 
 for fqdn in "${FQDNS[@]}"; do
   log_info "Resolving $fqdn..."
-  resolved=$(dig +short "$fqdn" A | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' | head -1)
-
-  if [[ -z "$resolved" ]]; then
-    log_fail "$fqdn - No A record found"
-  elif [[ -n "$EXPECTED_IP" && "$resolved" != "$EXPECTED_IP" ]]; then
-    log_fail "$fqdn -> $resolved (expected $EXPECTED_IP)"
-  else
-    log_pass "$fqdn -> $resolved"
-  fi
+  print_host_ip_status "$fqdn" "$EXPECTED_CLEAN_IP" "$EXPECTED_CLIENTC_IP"
 done
 
 # --- 2. HTTP to HTTPS Redirect ---

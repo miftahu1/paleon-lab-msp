@@ -6,15 +6,13 @@ terraform.tfstate.*
 
 # Terraform
 .terraform/
-.terraform.lock.hcl
 *.tfvars
 *.tfvars.local
 *.tfvars.secret
 
-# Environment & secrets
-.env
-.env.local
-.env.*.local
+# Generated test certificates / local runtime material
+/tmp/
+tmp/
 *.pem
 *.key
 *.crt

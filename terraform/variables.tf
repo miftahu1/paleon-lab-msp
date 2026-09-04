@@ -62,12 +62,6 @@ variable "ssh_allowed_cidrs" {
   default     = []
 }
 
-variable "enable_dnssec" {
-  description = "Enable DNSSEC for the hosted zone (requires KMS)"
-  type        = bool
-  default     = false
-}
-
 variable "tags" {
   description = "Common tags for all resources"
   type        = map(string)
