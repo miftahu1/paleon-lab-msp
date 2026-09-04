@@ -8,15 +8,15 @@
 
 ## A Records
 
-All records point to the single Elastic IP (EIP) attached to the EC2 instance.
+The estate uses two public EIPs: one clean-instance EIP and one Client C EIP. The clean hosts share the clean EIP, while Client C resolves to its own EIP.
 
 | Record Name | FQDN | Type | Value | TTL |
 |-------------|------|------|-------|-----|
-| msp | msp.paleon-lab-msp.com | A | EIP | 300 |
-| clienta | clienta.paleon-lab-msp.com | A | EIP | 300 |
-| clientb | clientb.paleon-lab-msp.com | A | EIP | 300 |
-| clientc | clientc.paleon-lab-msp.com | A | EIP | 300 |
-| clientd | clientd.paleon-lab-msp.com | A | EIP | 300 |
+| msp | msp.paleon-lab-msp.com | A | CLEAN_EIP | 300 |
+| clienta | clienta.paleon-lab-msp.com | A | CLEAN_EIP | 300 |
+| clientb | clientb.paleon-lab-msp.com | A | CLEAN_EIP | 300 |
+| clientd | clientd.paleon-lab-msp.com | A | CLEAN_EIP | 300 |
+| clientc | clientc.paleon-lab-msp.com | A | CLIENTC_EIP | 300 |
 
 ## Email Security Records (Subdomain-Specific)
 
@@ -60,23 +60,16 @@ paleon-lab-msp.com.  300  CAA  0 issuewild "letsencrypt.org"
 paleon-lab-msp.com.  300  CAA  0 iodef "mailto:security@paleon.example"
 ```
 
-## DNSSEC
-
-**Not enabled** for this test site.
-
-If enabling in future:
-1. Create KMS key for DNSSEC
-2. Enable DNSSEC on hosted zone (`aws_route53_zone` with `dnssec_config`)
-3. Publish DS records at registrar
-4. Update `expected.yaml` with DNSSEC findings
-
 ## Verification
 
 ```bash
-# Check all A records resolve to same IP
-for host in msp clienta clientb clientc clientd; do
+# Check clean hosts resolve to the clean EIP
+for host in msp clienta clientb clientd; do
   dig +short $host.paleon-lab-msp.com
 done
+
+# Check Client C resolves to the Client C EIP
+dig +short clientc.paleon-lab-msp.com
 
 # Check DMARC records
 for host in msp clienta clientb clientc clientd; do

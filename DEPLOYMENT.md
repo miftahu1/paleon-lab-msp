@@ -130,10 +130,10 @@ terraform plan \
 ```
 
 Review the plan carefully. Verify:
-- ✅ 1 EC2 instance (t3.micro)
-- ✅ 1 Elastic IP
-- ✅ 1 Security Group (4 rules)
-- ✅ 1 Route53 Hosted Zone + 5 A records
+- ✅ 2 EC2 instances (t3.micro)
+- ✅ 2 Elastic IPs
+- ✅ 2 Security Groups
+- ✅ 1 Route53 Hosted Zone + 5 A records with split EIP mapping
 - ✅ 1 S3 backend (if first deploy)
 
 ### 4. Apply Deployment
@@ -151,16 +151,26 @@ Type `yes` to confirm.
 
 ### 5. Wait for Bootstrap Completion
 
-The instance will:
+The clean instance will:
 1. Boot (~2 min)
 2. Install packages (~3 min)
-3. Deploy website & configs (~1 min)
+3. Deploy clean host configs and websites (~1 min)
 4. Start DNS polling (checks every 5 min)
-5. Provision certificates (~2-5 min after DNS resolves)
+5. Provision Let's Encrypt certificates for clean hosts (~2-5 min after DNS resolves)
 6. Enable HTTPS (~1 min)
-7. Start dummy listener (~30 sec)
+
+The Client C instance will:
+1. Boot (~2 min)
+2. Install packages (~3 min)
+3. Deploy the neglected Client C site and exposed .git content
+4. Load the expired self-signed certificate and open port 5432
+5. Start the dummy listener and misconfigured HTTPS site
 
 **Total time: ~10-20 minutes**
+
+### Optional Future DNS Enhancements
+
+This lab does not depend on registrar-managed key material; future DNS enhancements should be treated as separate work from the host security findings tracked here.
 
 Monitor progress:
 ```bash
@@ -254,9 +264,9 @@ done
 # Check Route53 records
 aws route53 list-resource-record-sets --hosted-zone-id <ZONE_ID>
 
-# Check from instance
+# Check split EIP mapping
 dig +short msp.paleon-lab-msp.com
-dig +short clienta.paleon-lab-msp.com
+dig +short clientc.paleon-lab-msp.com
 ```
 
 ### Certificates Not Issuing
@@ -367,8 +377,7 @@ Then run `terraform plan` to reconcile.
 ### Using a Real Domain
 If you register `paleon-lab-msp.com`:
 1. Update NS records at registrar to Route53 nameservers
-2. Enable DNSSEC if desired (add KMS key + DS records)
-3. Let's Encrypt will issue valid trusted certificates
+2. Let's Encrypt will issue valid trusted certificates
 
 ### Using a Test Domain (Current Default)
 - Domain is fictional, not registered

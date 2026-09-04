@@ -20,8 +20,10 @@ DOMAIN_NAME="${domain_name}"
 EXPECTED_CLEAN_IP="${expected_clean_ip}"
 EXPECTED_CLIENTC_IP="${expected_clientc_ip}"
 AWS_REGION="${aws_region}"
+INSTANCE_ROLE="${instance_role}"
 
 HOSTNAMES=("msp" "clienta" "clientb" "clientc" "clientd")
+CLEAN_HOSTNAMES=("msp" "clienta" "clientb" "clientd")
 FQDNS=()
 for h in "$${HOSTNAMES[@]}"; do
   FQDNS+=("$${h}.$${DOMAIN_NAME}")
@@ -47,6 +49,7 @@ log() {
 
 log "=== PALEON SITE 5 BOOTSTRAP STARTED ==="
 log "Domain: $${DOMAIN_NAME}"
+log "Instance role: $${INSTANCE_ROLE}"
 log "Expected clean IP: $${EXPECTED_CLEAN_IP}"
 log "Expected Client C IP: $${EXPECTED_CLIENTC_IP}"
 log "Repo: $${REPO_URL}"
@@ -96,13 +99,20 @@ log "Repository cloned successfully"
 
 # Step 4 deploy website content
 log "Step 4: Deploying website content to $${WEBSITE_ROOT}"
-for host in "$${HOSTNAMES[@]}"; do
-  mkdir -p "$${WEBSITE_ROOT}/$${host}"
-done
-cp -r /opt/paleon/website/* "$${WEBSITE_ROOT}/"
-mkdir -p "$${WEBSITE_ROOT}/clientc/.git"
-cp /opt/paleon/website/clientc/.git/HEAD "$${WEBSITE_ROOT}/clientc/.git/HEAD"
-cp /opt/paleon/website/clientc/.git/config "$${WEBSITE_ROOT}/clientc/.git/config"
+if [ "$${INSTANCE_ROLE}" = "clean" ]; then
+  for host in "$${HOSTNAMES[@]}"; do
+    mkdir -p "$${WEBSITE_ROOT}/$${host}"
+  done
+  cp -r /opt/paleon/website/* "$${WEBSITE_ROOT}/"
+  mkdir -p "$${WEBSITE_ROOT}/clientc/.git"
+  cp /opt/paleon/website/clientc/.git/HEAD "$${WEBSITE_ROOT}/clientc/.git/HEAD"
+  cp /opt/paleon/website/clientc/.git/config "$${WEBSITE_ROOT}/clientc/.git/config"
+else
+  mkdir -p "$${WEBSITE_ROOT}/clientc/.git"
+  cp -r /opt/paleon/website/clientc/.git "$${WEBSITE_ROOT}/clientc/.git/"
+  mkdir -p "$${WEBSITE_ROOT}/clientc"
+  cp -r /opt/paleon/website/clientc/index.html "$${WEBSITE_ROOT}/clientc/index.html"
+fi
 chown -R www-data:www-data "$${WEBSITE_ROOT}"
 find "$${WEBSITE_ROOT}" -type f -exec chmod 644 {} \;
 find "$${WEBSITE_ROOT}" -type d -exec chmod 755 {} \;
@@ -111,9 +121,13 @@ log "Website content deployed"
 # Step 5 deploy bootstrap nginx configs
 log "Step 5: Deploying HTTP bootstrap Nginx configs"
 cp /opt/paleon/nginx/http-bootstrap/*.conf "$${NGINX_AVAILABLE}/"
-for host in "$${HOSTNAMES[@]}"; do
-  ln -sf "$${NGINX_AVAILABLE}/$${host}.conf" "$${NGINX_ENABLED}/$${host}.conf"
-done
+if [ "$${INSTANCE_ROLE}" = "clean" ]; then
+  for host in "$${HOSTNAMES[@]}"; do
+    ln -sf "$${NGINX_AVAILABLE}/$${host}.conf" "$${NGINX_ENABLED}/$${host}.conf"
+  done
+else
+  ln -sf "$${NGINX_AVAILABLE}/clientc.conf" "$${NGINX_ENABLED}/clientc.conf"
+fi
 rm -f "$${NGINX_ENABLED}/default"
 mkdir -p /var/www/letsencrypt
 chown -R www-data:www-data /var/www/letsencrypt
@@ -132,6 +146,7 @@ sed -i "s|EXPECTED_CLIENTC_IP_PLACEHOLDER|$${EXPECTED_CLIENTC_IP}|g" "$${SCRIPTS
 sed -i "s|DOMAIN_NAME_PLACEHOLDER|$${DOMAIN_NAME}|g" "$${SCRIPTS_DIR}/cert-setup.sh"
 sed -i "s|EXPECTED_CLEAN_IP_PLACEHOLDER|$${EXPECTED_CLEAN_IP}|g" "$${SCRIPTS_DIR}/cert-setup.sh"
 sed -i "s|EXPECTED_CLIENTC_IP_PLACEHOLDER|$${EXPECTED_CLIENTC_IP}|g" "$${SCRIPTS_DIR}/cert-setup.sh"
+sed -i "s|INSTANCE_ROLE_PLACEHOLDER|$${INSTANCE_ROLE}|g" "$${SCRIPTS_DIR}/cert-setup.sh"
 log "Scripts deployed"
 
 # Step 7 systemd units

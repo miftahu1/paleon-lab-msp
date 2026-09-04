@@ -24,22 +24,31 @@ This repository contains a complete, production-ready infrastructure-as-code dep
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                     Route 53 Hosted Zone                     │
+│                  Route 53 Hosted Zone                         │
 │  paleon-lab-msp.com                                          │
 ├─────────────────────────────────────────────────────────────┤
-│  A Records: msp, clienta, clientb, clientc, clientd         │
-│  → Single Elastic IP (EIP)                                   │
+│  A Records:                                                  │
+│  • msp, clienta, clientb, clientd → CLEAN EIP               │
+│  • clientc → CLIENTC EIP                                     │
+│  • 2 EC2 instances / 2 EIPs / 2 security groups             │
 └─────────────────────────────────────────────────────────────┘
                             │
                             ▼
 ┌─────────────────────────────────────────────────────────────┐
-│  EC2 Instance (Ubuntu 24.04 LTS, t3.micro)                  │
+│  Clean EC2 (Ubuntu 24.04 LTS, t3.micro)                    │
 │  • IMDSv2 required                                           │
-│  • Nginx with hostname-based virtual hosts                   │
-│  • Static HTML/CSS/JS only                                   │
-│  • Let's Encrypt TLS (clean clients)                         │
-│  • Self-signed TLS (expiring/expired clients)                │
-│  • Dummy TCP listener on port 5432 (PostgreSQL port)        │
+│  • Hostnames: msp, clienta, clientb, clientd                │
+│  • Nginx virtual hosts + Let's Encrypt                       │
+│  • Self-signed expiring cert for Client B                   │
+└─────────────────────────────────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────┐
+│  Client C EC2 (Ubuntu 24.04 LTS, t3.micro)                 │
+│  • IMDSv2 required                                           │
+│  • Hostname: clientc                                         │
+│  • Expired self-signed cert + exposed .git + port 5432     │
+│  • No public clean-host certificate issuance                │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -219,7 +228,7 @@ Run before deployment:
 - **DO NOT** use real credentials or production data
 - The dummy database listener on port 5432 is **harmless** — it accepts TCP connections but speaks no database protocol
 - All certificates for Client B/C are self-signed test certificates
-- DNSSEC is NOT enabled (simplicity)
+- The lab intentionally keeps the zone model simple so the scanner focuses on host posture rather than redundant zone complexity
 
 ---
 

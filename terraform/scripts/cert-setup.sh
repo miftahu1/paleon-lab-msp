@@ -13,7 +13,9 @@ set -euo pipefail
 # ============================================================================
 
 DOMAIN_NAME="DOMAIN_NAME_PLACEHOLDER"
-EXPECTED_IP="EXPECTED_IP_PLACEHOLDER"
+EXPECTED_CLEAN_IP="EXPECTED_CLEAN_IP_PLACEHOLDER"
+EXPECTED_CLIENTC_IP="EXPECTED_CLIENTC_IP_PLACEHOLDER"
+INSTANCE_ROLE="INSTANCE_ROLE_PLACEHOLDER"
 
 HOSTNAMES=("msp" "clienta" "clientb" "clientc" "clientd")
 CLEAN_HOSTNAMES=("msp" "clienta" "clientd")
@@ -41,6 +43,7 @@ log() {
 
 log "=== CERTIFICATE SETUP STARTED ==="
 log "Domain: ${DOMAIN_NAME}"
+log "Instance role: ${INSTANCE_ROLE}"
 
 # ============================================================================
 # STEP 1: VERIFY DNS STILL RESOLVES
@@ -48,48 +51,61 @@ log "Domain: ${DOMAIN_NAME}"
 
 log "Step 1: Verifying DNS resolution..."
 
-for host in "${HOSTNAMES[@]}"; do
-  fqdn="${host}.${DOMAIN_NAME}"
+if [ "${INSTANCE_ROLE}" = "clean" ]; then
+  for host in "${CLEAN_HOSTNAMES[@]}"; do
+    fqdn="${host}.${DOMAIN_NAME}"
+    resolved=$(dig +short "${fqdn}" A | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' | head -1)
+
+    if [ "${resolved}" != "${EXPECTED_CLEAN_IP}" ]; then
+      log "ERROR: ${fqdn} resolves to ${resolved}, expected ${EXPECTED_CLEAN_IP}"
+      exit 1
+    fi
+
+    log "OK: ${fqdn} -> ${resolved}"
+  done
+elif [ "${INSTANCE_ROLE}" = "clientc" ]; then
+  fqdn="clientc.${DOMAIN_NAME}"
   resolved=$(dig +short "${fqdn}" A | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' | head -1)
 
-  if [ "${resolved}" != "${EXPECTED_IP}" ]; then
-    log "ERROR: ${fqdn} resolves to ${resolved}, expected ${EXPECTED_IP}"
+  if [ "${resolved}" != "${EXPECTED_CLIENTC_IP}" ]; then
+    log "ERROR: ${fqdn} resolves to ${resolved}, expected ${EXPECTED_CLIENTC_IP}"
     exit 1
   fi
 
   log "OK: ${fqdn} -> ${resolved}"
-done
+else
+  log "ERROR: Unsupported instance role: ${INSTANCE_ROLE}"
+  exit 1
+fi
 
 # ============================================================================
 # STEP 2: REQUEST LET'S ENCRYPT CERTIFICATES FOR CLEAN CLIENTS
 # ============================================================================
 
-log "Step 2: Requesting Let's Encrypt certificates for clean clients..."
+if [ "${INSTANCE_ROLE}" = "clean" ]; then
+  log "Step 2: Requesting Let's Encrypt certificates for clean clients..."
+  DOMAIN_ARGS=()
+  for host in "${CLEAN_HOSTNAMES[@]}"; do
+    DOMAIN_ARGS+=("-d" "${host}.${DOMAIN_NAME}")
+  done
 
-# Build domain list for certbot
-DOMAIN_ARGS=()
-for host in "${CLEAN_HOSTNAMES[@]}"; do
-  DOMAIN_ARGS+=("-d" "${host}.${DOMAIN_NAME}")
-done
+  if ! certbot certonly \
+    --nginx \
+    "${DOMAIN_ARGS[@]}" \
+    --non-interactive \
+    --agree-tos \
+    --email "admin@${DOMAIN_NAME}" \
+    --redirect \
+    --no-eff-email \
+    --keep-until-expiring; then
+    log "ERROR: Certbot failed"
+    exit 1
+  fi
 
-# Run certbot with nginx plugin
-# Use --nginx to auto-configure, but we'll deploy our own configs after
-certbot certonly \
-  --nginx \
-  "${DOMAIN_ARGS[@]}" \
-  --non-interactive \
-  --agree-tos \
-  --email "admin@${DOMAIN_NAME}" \
-  --redirect \
-  --no-eff-email \
-  --keep-until-expiring
-
-if [ $? -ne 0 ]; then
-  log "ERROR: Certbot failed"
-  exit 1
+  log "Let's Encrypt certificates obtained"
+else
+  log "Step 2: Client C instance does not request Let's Encrypt certificates."
 fi
-
-log "Let's Encrypt certificates obtained"
 
 # ============================================================================
 # STEP 3: VERIFY CERTIFICATES
@@ -97,38 +113,54 @@ log "Let's Encrypt certificates obtained"
 
 log "Step 3: Verifying certificates..."
 
-for host in "${CLEAN_HOSTNAMES[@]}"; do
-  fqdn="${host}.${DOMAIN_NAME}"
-  cert_path="${LETSENCRYPT_DIR}/${fqdn}/fullchain.pem"
-  key_path="${LETSENCRYPT_DIR}/${fqdn}/privkey.pem"
+if [ "${INSTANCE_ROLE}" = "clean" ]; then
+  for host in "${CLEAN_HOSTNAMES[@]}"; do
+    fqdn="${host}.${DOMAIN_NAME}"
+    cert_path="${LETSENCRYPT_DIR}/${fqdn}/fullchain.pem"
+    key_path="${LETSENCRYPT_DIR}/${fqdn}/privkey.pem"
 
-  if [ ! -f "${cert_path}" ] || [ ! -f "${key_path}" ]; then
-    log "ERROR: Certificate files not found for ${fqdn}"
-    exit 1
-  fi
+    if [ ! -f "${cert_path}" ] || [ ! -f "${key_path}" ]; then
+      log "ERROR: Certificate files not found for ${fqdn}"
+      exit 1
+    fi
 
-  # Check validity
-  openssl x509 -in "${cert_path}" -noout -checkend 86400 >/dev/null 2>&1
-  if [ $? -ne 0 ]; then
-    log "WARNING: Certificate for ${fqdn} expires within 24 hours"
-  fi
+    if ! openssl x509 -in "${cert_path}" -noout -checkend 86400 >/dev/null 2>&1; then
+      log "WARNING: Certificate for ${fqdn} expires within 24 hours"
+    fi
 
-  log "OK: ${fqdn} certificate valid"
-done
+    log "OK: ${fqdn} certificate valid"
+  done
 
-# Verify self-signed certs exist
-for host in "${SELF_SIGNED_HOSTNAMES[@]}"; do
-  fqdn="${host}.${DOMAIN_NAME}"
+  for host in "clientb"; do
+    fqdn="${host}.${DOMAIN_NAME}"
+    cert_path="${SSL_DIR}/${fqdn}.crt"
+    key_path="${SSL_DIR}/${fqdn}.key"
+
+    if [ ! -f "${cert_path}" ] || [ ! -f "${key_path}" ]; then
+      log "ERROR: Self-signed certificate not found for ${fqdn}"
+      exit 1
+    fi
+
+    log "OK: ${fqdn} self-signed certificate present"
+  done
+else
+  fqdn="clientc.${DOMAIN_NAME}"
   cert_path="${SSL_DIR}/${fqdn}.crt"
   key_path="${SSL_DIR}/${fqdn}.key"
 
   if [ ! -f "${cert_path}" ] || [ ! -f "${key_path}" ]; then
-    log "ERROR: Self-signed certificate not found for ${fqdn}"
+    log "ERROR: Client C self-signed certificate not found for ${fqdn}"
     exit 1
   fi
 
-  log "OK: ${fqdn} self-signed certificate present"
-done
+  openssl x509 -in "${cert_path}" -noout -checkend 0 >/dev/null 2>&1
+  if [ $? -eq 0 ]; then
+    log "ERROR: Client C certificate unexpectedly still valid"
+    exit 1
+  fi
+
+  log "OK: ${fqdn} expired certificate present and expired"
+fi
 
 # ============================================================================
 # STEP 4: DEPLOY HTTPS FINAL NGINX CONFIGS
@@ -136,15 +168,19 @@ done
 
 log "Step 4: Deploying HTTPS final Nginx configs..."
 
-# Copy HTTPS configs
 cp /opt/paleon/nginx/https-final/*.conf "${NGINX_AVAILABLE}/"
 
-# Re-enable sites (they were already enabled for HTTP, but configs are replaced)
-for host in "${HOSTNAMES[@]}"; do
-  ln -sf "${NGINX_AVAILABLE}/${host}.conf" "${NGINX_ENABLED}/${host}.conf"
-done
+if [ "${INSTANCE_ROLE}" = "clean" ]; then
+  for host in "${HOSTNAMES[@]}"; do
+    ln -sf "${NGINX_AVAILABLE}/${host}.conf" "${NGINX_ENABLED}/${host}.conf"
+  done
+else
+  ln -sf "${NGINX_AVAILABLE}/clientc.conf" "${NGINX_ENABLED}/clientc.conf"
+  for host in msp clienta clientb clientd; do
+    rm -f "${NGINX_ENABLED}/${host}.conf"
+  done
+fi
 
-# Remove default site
 rm -f "${NGINX_ENABLED}/default"
 
 log "HTTPS configs deployed"
@@ -155,8 +191,7 @@ log "HTTPS configs deployed"
 
 log "Step 5: Testing and reloading Nginx..."
 
-nginx -t
-if [ $? -ne 0 ]; then
+if ! nginx -t; then
   log "ERROR: Nginx configuration test failed"
   exit 1
 fi

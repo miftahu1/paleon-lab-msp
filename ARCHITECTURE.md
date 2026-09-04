@@ -14,28 +14,27 @@ This document describes the technical architecture for the MSP-managed multi-cli
 │  ┌───────────────────────────────────────────────────────────────────────┐  │
 │  │                        Route 53 Hosted Zone                            │  │
 │  │  paleon-lab-msp.com (managed by Terraform)                             │  │
-│  │  ├─ A msp.paleon-lab-msp.com        → EIP                              │  │
-│  │  ├─ A clienta.paleon-lab-msp.com    → EIP                              │  │
-│  │  ├─ A clientb.paleon-lab-msp.com    → EIP                              │  │
-│  │  ├─ A clientc.paleon-lab-msp.com    → EIP                              │  │
-│  │  └─ A clientd.paleon-lab-msp.com    → EIP                              │  │
+│  │  ├─ A msp.paleon-lab-msp.com        → CLEAN EIP                       │  │
+│  │  ├─ A clienta.paleon-lab-msp.com    → CLEAN EIP                       │  │
+│  │  ├─ A clientb.paleon-lab-msp.com    → CLEAN EIP                       │  │
+│  │  ├─ A clientd.paleon-lab-msp.com    → CLEAN EIP                       │  │
+│  │  └─ A clientc.paleon-lab-msp.com    → CLIENTC EIP                     │  │
 │  └───────────────────────────────────────────────────────────────────────┘  │
 │                                    │                                         │
 │                                    ▼                                         │
 │  ┌───────────────────────────────────────────────────────────────────────┐  │
-│  │                      Elastic IP (EIP)                                  │  │
-│  │  Static IPv4, associated with EC2 instance                             │  │
+│  │                 Clean EC2 + EIP (Ubuntu 24.04 LTS)                    │  │
+│  │  • HTTP/HTTPS for msp, clienta, clientb, clientd                     │  │
+│  │  • Let's Encrypt for clean hosts                                      │  │
+│  │  • Self-signed expiring cert for Client B                             │  │
 │  └───────────────────────────────────────────────────────────────────────┘  │
 │                                    │                                         │
 │                                    ▼                                         │
 │  ┌───────────────────────────────────────────────────────────────────────┐  │
-│  │                    EC2 Instance (Ubuntu 24.04 LTS)                     │  │
-│  │  • Instance Type: t3.micro                                            │  │
-│  │  • AMI: Ubuntu 24.04 LTS (hvm-ssd-gp3)                                │  │
-│  │  • IMDSv2: Required (enforced)                                        │  │
-│  │  • User Data: Self-contained bootstrap                                │  │
-│  │  • Security Group: See below                                          │  │
-│  │  • IAM: Minimal (SSM if needed, no resource access)                   │  │
+│  │               Client C EC2 + EIP (Ubuntu 24.04 LTS)                   │  │
+│  │  • Hostname: clientc                                                  │  │
+│  │  • Expired self-signed cert + exposed .git + port 5432               │  │
+│  │  • Separate security group and EIP                                    │  │
 │  └───────────────────────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -70,7 +69,8 @@ This document describes the technical architecture for the MSP-managed multi-cli
 ### VPC & Subnet
 - **VPC**: Default VPC or dedicated VPC (configurable)
 - **Subnet**: Public subnet with internet gateway route
-- **EIP**: Allocated and associated with instance
+- **EIPs**: Two static public IPs, one for clean hosts and one for Client C
+- **EC2 instances**: Clean and Client C are intentionally separated for role-based posture
 
 ### IMDSv2 Enforcement
 ```hcl
@@ -169,11 +169,11 @@ The scanner performs TLS handshakes and will observe:
 
 | Name | Type | Value | TTL |
 |------|------|-------|-----|
-| msp | A | EIP | 300 |
-| clienta | A | EIP | 300 |
-| clientb | A | EIP | 300 |
-| clientc | A | EIP | 300 |
-| clientd | A | EIP | 300 |
+| msp | A | CLEAN_EIP | 300 |
+| clienta | A | CLEAN_EIP | 300 |
+| clientb | A | CLEAN_EIP | 300 |
+| clientd | A | CLEAN_EIP | 300 |
+| clientc | A | CLIENTC_EIP | 300 |
 
 ### Email Security Records (Per-Subdomain)
 
@@ -201,9 +201,6 @@ clientd.paleon-lab-msp.com.         TXT  "v=spf1 ip4:EIP -all"
 ```
 paleon-lab-msp.com.  CAA  0 issue "letsencrypt.org"
 ```
-
-### DNSSEC
-**Not enabled** — adds complexity without benefit for test purposes. Can be added if explicitly required.
 
 ---
 

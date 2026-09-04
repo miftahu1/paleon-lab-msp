@@ -193,6 +193,7 @@ resource "aws_instance" "clean" {
     expected_clean_ip   = aws_eip.clean.public_ip
     expected_clientc_ip = aws_eip.clientc.public_ip
     aws_region          = var.aws_region
+    instance_role       = "clean"
   })
 
   tags = merge(var.tags, {
@@ -229,6 +230,7 @@ resource "aws_instance" "clientc" {
     expected_clean_ip   = aws_eip.clean.public_ip
     expected_clientc_ip = aws_eip.clientc.public_ip
     aws_region          = var.aws_region
+    instance_role       = "clientc"
   })
 
   tags = merge(var.tags, {

@@ -52,7 +52,7 @@ clean_path() {
   if [[ -e "$path" ]]; then
     rm -rf "$path"
     log_pass "Removed: $path ($desc)"
-    ((CLEANED++))
+    CLEANED=$((CLEANED + 1))
   fi
 }
 
@@ -112,7 +112,7 @@ if git status --porcelain 2>/dev/null | grep -q "^ M"; then
   if [[ $REPLY =~ ^[Yy]$ ]]; then
     git checkout -- .
     log_pass "Restored all modified tracked files"
-    ((CLEANED++))
+    CLEANED=$((CLEANED + 1))
   else
     log_info "Skipped restoring tracked files"
   fi
@@ -134,7 +134,7 @@ if [[ -n "$UNTRACKED" ]]; then
   if [[ $REPLY =~ ^[Yy]$ ]]; then
     echo "$UNTRACKED" | xargs -r rm -rf
     log_pass "Removed untracked files"
-    ((CLEANED++))
+    CLEANED=$((CLEANED + 1))
   else
     log_info "Kept untracked files"
   fi
@@ -192,7 +192,7 @@ MISSING=0
 for file in "${CRITICAL_FILES[@]}"; do
   if [[ ! -f "$file" ]]; then
     log_error "CRITICAL FILE MISSING: $file"
-    ((MISSING++))
+    MISSING=$((MISSING + 1))
   fi
 done
 

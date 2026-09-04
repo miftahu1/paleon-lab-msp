@@ -131,7 +131,7 @@ check_no_secrets() {
       # Allow known test/fake patterns
       if ! grep -qiE "AKIAEXAMPLE|123456789012|ScannerTestRole|FAKE|TEST|DUMMY|EXAMPLE" "$file" 2>/dev/null; then
         log_fail "Potential secret found in $file (pattern: $pattern)"
-        ((found++))
+        found=$((found + 1))
       fi
     fi
   done
@@ -159,7 +159,7 @@ check_git_ignored() {
   for pattern in "${ignored_patterns[@]}"; do
     if git ls-files | grep -qE "$pattern" 2>/dev/null; then
       log_fail "Git tracks ignored pattern: $pattern"
-      ((issues++))
+      issues=$((issues + 1))
     fi
   done
 
