@@ -141,7 +141,7 @@ hostnames:
 
 # Summary of all expected findings
 summary:
-  total_expected_findings: 8
+  total_expected_findings: 9
   by_category:
     tls: 2
     http_headers: 3
@@ -150,12 +150,12 @@ summary:
     open_ports: 1
   by_severity:
     high: 2
-    medium: 4
+    medium: 6
     low: 1
     critical: 0
   by_client:
     "clientb.paleon-lab-msp.com": 2
-    "clientc.paleon-lab-msp.com": 6
+    "clientc.paleon-lab-msp.com": 7
     "msp.paleon-lab-msp.com": 0
     "clienta.paleon-lab-msp.com": 0
     "clientd.paleon-lab-msp.com": 0
@@ -423,11 +423,11 @@ validation_rules:
     hostnames: ["msp.paleon-lab-msp.com", "clienta.paleon-lab-msp.com", "clientd.paleon-lab-msp.com"]
 
   certificate_transparency:
-    enabled: true
-    description: "Let's Encrypt certs must appear in CT logs"
+    enabled: false
+    description: "Optional: Check Certificate Transparency logs. Disabled by default to avoid external dependencies."
     hostnames: ["msp.paleon-lab-msp.com", "clienta.paleon-lab-msp.com", "clientd.paleon-lab-msp.com"]
 
   ocsp_stapling:
-    enabled: true
-    description: "Clean clients must have OCSP stapling enabled"
+    enabled: false
+    description: "Optional: Check OCSP stapling. Disabled by default to avoid relying on external responders." 
     hostnames: ["msp.paleon-lab-msp.com", "clienta.paleon-lab-msp.com", "clientd.paleon-lab-msp.com"]

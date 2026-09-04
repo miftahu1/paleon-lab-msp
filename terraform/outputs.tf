@@ -1,29 +1,44 @@
-# Terraform Outputs
-# Site 5 - MSP Multi-Client Estate
+// Terraform Outputs
+// Site 5 - MSP Multi-Client Estate
 
-output "instance_id" {
-  description = "EC2 Instance ID"
-  value       = aws_instance.msp.id
+output "clean_instance_id" {
+  description = "EC2 Instance ID for clean instance"
+  value       = aws_instance.clean.id
 }
 
-output "instance_public_ip" {
-  description = "EC2 Instance public IP (before EIP association)"
-  value       = aws_instance.msp.public_ip
+output "clientc_instance_id" {
+  description = "EC2 Instance ID for Client C instance"
+  value       = aws_instance.clientc.id
 }
 
-output "eip_public_ip" {
-  description = "Elastic IP address"
-  value       = aws_eip.msp.public_ip
+output "clean_eip_public_ip" {
+  description = "Public IP for clean Elastic IP"
+  value       = aws_eip.clean.public_ip
 }
 
-output "eip_allocation_id" {
-  description = "Elastic IP allocation ID"
-  value       = aws_eip.msp.id
+output "clientc_eip_public_ip" {
+  description = "Public IP for clientc Elastic IP"
+  value       = aws_eip.clientc.public_ip
 }
 
-output "security_group_id" {
-  description = "Security Group ID"
-  value       = aws_security_group.msp.id
+output "clean_eip_allocation_id" {
+  description = "Allocation ID for clean EIP"
+  value       = aws_eip.clean.id
+}
+
+output "clientc_eip_allocation_id" {
+  description = "Allocation ID for clientc EIP"
+  value       = aws_eip.clientc.id
+}
+
+output "clean_security_group_id" {
+  description = "Security Group ID for clean instance"
+  value       = aws_security_group.clean.id
+}
+
+output "clientc_security_group_id" {
+  description = "Security Group ID for clientc instance"
+  value       = aws_security_group.clientc.id
 }
 
 output "route53_zone_id" {
@@ -52,9 +67,14 @@ output "hostnames" {
   }
 }
 
-output "ssh_command" {
-  description = "SSH command to connect to instance"
-  value       = "ssh -i ~/.ssh/${var.ssh_key_name}.pem ubuntu@${aws_eip.msp.public_ip}"
+output "ssh_command_clean" {
+  description = "SSH command to connect to clean instance"
+  value       = "ssh -i ~/.ssh/${var.ssh_key_name}.pem ubuntu@${aws_eip.clean.public_ip}"
+}
+
+output "ssh_command_clientc" {
+  description = "SSH command to connect to clientc instance"
+  value       = "ssh -i ~/.ssh/${var.ssh_key_name}.pem ubuntu@${aws_eip.clientc.public_ip}"
 }
 
 output "expected_ip_file" {
@@ -85,14 +105,17 @@ output "letsencrypt_dir" {
 output "deployment_summary" {
   description = "Summary of deployed resources"
   value = {
-    instance_id    = aws_instance.msp.id
-    instance_type  = var.instance_type
-    eip            = aws_eip.msp.public_ip
-    domain         = var.domain_name
-    hostnames      = ["msp", "clienta", "clientb", "clientc", "clientd"]
-    open_ports     = [80, 443, 5432]
-    ssh_restricted = var.admin_ip_cidr
-    security_group = aws_security_group.msp.id
-    route53_zone   = aws_route53_zone.msp.zone_id
+    clean_instance_id    = aws_instance.clean.id
+    clientc_instance_id  = aws_instance.clientc.id
+    instance_type        = var.instance_type
+    clean_eip            = aws_eip.clean.public_ip
+    clientc_eip          = aws_eip.clientc.public_ip
+    domain               = var.domain_name
+    hostnames            = ["msp", "clienta", "clientb", "clientc", "clientd"]
+    open_ports           = [80, 443, 5432]
+    ssh_restricted       = var.admin_ip_cidr
+    clean_security_group = aws_security_group.clean.id
+    clientc_security_group = aws_security_group.clientc.id
+    route53_zone         = aws_route53_zone.msp.zone_id
   }
 }

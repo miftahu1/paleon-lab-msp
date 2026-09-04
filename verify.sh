@@ -22,6 +22,11 @@ EXPECTED_CLIENTC_IP="${EXPECTED_CLIENTC_IP:-${CLIENTC_IP:-}}"
 TIMEOUT=10
 VERBOSE="${VERBOSE:-false}"
 
+# Optional external checks (disabled by default to avoid external dependencies)
+# Set these to "true" in the environment to enable diagnostic checks.
+ENABLE_OCSP="${ENABLE_OCSP:-false}"
+ENABLE_CT="${ENABLE_CT:-false}"
+
 if [[ -n "${EXPECTED_IP:-}" ]]; then
   read -r -a EXPECTED_IPS <<< "${EXPECTED_IP}"
   EXPECTED_CLEAN_IP="${EXPECTED_CLEAN_IP:-${EXPECTED_IPS[0]:-}}"
@@ -470,31 +475,37 @@ for fqdn in "msp.$DOMAIN" "clientb.$DOMAIN" "clientc.$DOMAIN" "clientd.$DOMAIN";
 done
 
 # --- 10. OCSP Stapling (Clean Clients) ---
-log_section "OCSP Stapling Check (Clean Clients)"
-
-for fqdn in "msp.$DOMAIN" "clienta.$DOMAIN" "clientd.$DOMAIN"; do
-  log_info "Checking OCSP stapling for $fqdn..."
-  ocsp=$(echo | openssl s_client -connect "$fqdn:443" -servername "$fqdn" -status 2>/dev/null | grep -A 10 "OCSP Response" || echo "")
-  if echo "$ocsp" | grep -q "Response Status: Successful"; then
-    log_pass "$fqdn - OCSP stapling working"
-  else
-    log_warn "$fqdn - OCSP stapling not verified (may need time to populate)"
-  fi
-done
+if [[ "$ENABLE_OCSP" == "true" ]]; then
+  log_section "OCSP Stapling Check (Clean Clients)"
+  for fqdn in "msp.$DOMAIN" "clienta.$DOMAIN" "clientd.$DOMAIN"; do
+    log_info "Checking OCSP stapling for $fqdn..."
+    ocsp=$(echo | openssl s_client -connect "$fqdn:443" -servername "$fqdn" -status 2>/dev/null | grep -A 10 "OCSP Response" || echo "")
+    if echo "$ocsp" | grep -q "Response Status: Successful"; then
+      log_pass "$fqdn - OCSP stapling working"
+    else
+      log_warn "$fqdn - OCSP stapling not verified (may need time to populate)"
+    fi
+  done
+else
+  log_info "OCSP stapling checks are disabled by default (set ENABLE_OCSP=true to enable diagnostics)"
+fi
 
 # --- 11. Certificate Transparency (Clean Clients) ---
-log_section "Certificate Transparency Check (Clean Clients)"
-
-for fqdn in "msp.$DOMAIN" "clienta.$DOMAIN" "clientd.$DOMAIN"; do
-  log_info "Checking CT logs for $fqdn..."
-  # Use crt.sh API
-  ct_response=$(curl -s "https://crt.sh/?q=%25.$fqdn&output=json" --max-time 15 2>/dev/null || echo "[]")
-  if echo "$ct_response" | grep -q "$fqdn"; then
-    log_pass "$fqdn - Found in Certificate Transparency logs"
-  else
-    log_warn "$fqdn - Not yet found in CT logs (may take time)"
-  fi
-done
+if [[ "$ENABLE_CT" == "true" ]]; then
+  log_section "Certificate Transparency Check (Clean Clients)"
+  for fqdn in "msp.$DOMAIN" "clienta.$DOMAIN" "clientd.$DOMAIN"; do
+    log_info "Checking CT logs for $fqdn..."
+    # Use crt.sh API
+    ct_response=$(curl -s "https://crt.sh/?q=%25.$fqdn&output=json" --max-time 15 2>/dev/null || echo "[]")
+    if echo "$ct_response" | grep -q "$fqdn"; then
+      log_pass "$fqdn - Found in Certificate Transparency logs"
+    else
+      log_warn "$fqdn - Not yet found in CT logs (may take time)"
+    fi
+  done
+else
+  log_info "Certificate Transparency checks are disabled by default (set ENABLE_CT=true to enable diagnostics)"
+fi
 
 # --- SUMMARY ---
 echo ""

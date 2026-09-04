@@ -478,12 +478,18 @@ assert postures['clientc.paleon-lab-msp.com'] == 'neglected'
 assert postures['clientd.paleon-lab-msp.com'] == 'clean'
 
 summary = data['summary']
-assert summary['total_expected_findings'] == 8
+assert summary['total_expected_findings'] == 9
 assert summary['by_category']['tls'] == 2
 assert summary['by_category']['http_headers'] == 3
 assert summary['by_category']['dns_email'] == 1
 assert summary['by_category']['exposed_files'] == 2
 assert summary['by_category']['open_ports'] == 1
+assert summary['by_severity']['high'] == 2
+assert summary['by_severity']['medium'] == 6
+assert summary['by_severity']['low'] == 1
+assert summary['by_severity']['critical'] == 0
+assert summary['by_client']['clientb.paleon-lab-msp.com'] == 2
+assert summary['by_client']['clientc.paleon-lab-msp.com'] == 7
 
 print("PASS: expected.yaml structure and content validated")
 PYEOF
