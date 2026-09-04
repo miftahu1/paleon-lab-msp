@@ -25,9 +25,9 @@ WARN=0
 
 # Helper functions
 log_info() { echo -e "${BLUE}[INFO]${NC} $*"; }
-log_pass() { echo -e "${GREEN}[PASS]${NC} $*"; PASS=$((PASS + 1)); }
-log_fail() { echo -e "${RED}[FAIL]${NC} $*"; FAIL=$((FAIL + 1)); }
-log_warn() { echo -e "${YELLOW}[WARN]${NC} $*"; WARN=$((WARN + 1)); }
+log_pass() { echo -e "${GREEN}[PASS]${NC} $*"; ((PASS++)); }
+log_fail() { echo -e "${RED}[FAIL]${NC} $*"; ((FAIL++)); }
+log_warn() { echo -e "${YELLOW}[WARN]${NC} $*"; ((WARN++)); }
 log_section() { echo -e "\n${CYAN}=== $* ===${NC}"; }
 
 verbose() {
@@ -107,32 +107,6 @@ parse_cert_expiry() {
   fi
 }
 
-print_host_ip_status() {
-  local fqdn="$1"
-  local expected_clean_ip="$2"
-  local expected_clientc_ip="$3"
-  local resolved
-  resolved=$(dig +short "$fqdn" A | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' | head -1)
-
-  if [[ -z "$resolved" ]]; then
-    log_fail "$fqdn - No A record found"
-    return 1
-  fi
-
-  local expected_ip="$expected_clean_ip"
-  if [[ "$fqdn" == "clientc.$DOMAIN" ]]; then
-    expected_ip="$expected_clientc_ip"
-  fi
-
-  if [[ -n "$expected_ip" && "$resolved" != "$expected_ip" ]]; then
-    log_fail "$fqdn -> $resolved (expected $expected_ip)"
-    return 1
-  fi
-
-  log_pass "$fqdn -> $resolved"
-  return 0
-}
-
 # ============================================================================
 # VERIFICATION START
 # ============================================================================
@@ -142,13 +116,7 @@ echo "Paleon Test Site 5 - Post-Deployment Verification"
 echo "====================================================================="
 echo "Domain: $DOMAIN"
 if [[ -n "$EXPECTED_IP" ]]; then
-  read -r -a EXPECTED_IPS <<< "$EXPECTED_IP"
-  EXPECTED_CLEAN_IP="${EXPECTED_IPS[0]:-}"
-  EXPECTED_CLIENTC_IP="${EXPECTED_IPS[1]:-}"
-  echo "Expected IP(s): ${EXPECTED_CLEAN_IP:-<unset>} / ${EXPECTED_CLIENTC_IP:-<unset>}"
-else
-  EXPECTED_CLEAN_IP=""
-  EXPECTED_CLIENTC_IP=""
+  echo "Expected IP: $EXPECTED_IP"
 fi
 echo "Timestamp: $(date)"
 echo ""
@@ -172,7 +140,15 @@ log_section "DNS Resolution"
 
 for fqdn in "${FQDNS[@]}"; do
   log_info "Resolving $fqdn..."
-  print_host_ip_status "$fqdn" "$EXPECTED_CLEAN_IP" "$EXPECTED_CLIENTC_IP"
+  resolved=$(dig +short "$fqdn" A | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' | head -1)
+
+  if [[ -z "$resolved" ]]; then
+    log_fail "$fqdn - No A record found"
+  elif [[ -n "$EXPECTED_IP" && "$resolved" != "$EXPECTED_IP" ]]; then
+    log_fail "$fqdn -> $resolved (expected $EXPECTED_IP)"
+  else
+    log_pass "$fqdn -> $resolved"
+  fi
 done
 
 # --- 2. HTTP to HTTPS Redirect ---
@@ -354,48 +330,53 @@ done
 # --- 7. Port Scanning ---
 log_section "Port Verification"
 
-if [[ -n "$EXPECTED_IP" ]]; then
-  TARGET_IP="$EXPECTED_IP"
+if [[ -n "$EXPECTED_CLEAN_IP" || -n "$EXPECTED_CLIENTC_IP" ]]; then
+  CLEAN_TARGET_IP="${EXPECTED_CLEAN_IP:-$(dig +short "msp.$DOMAIN" A | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' | head -1)}"
+  CLIENTC_TARGET_IP="${EXPECTED_CLIENTC_IP:-$(dig +short "clientc.$DOMAIN" A | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' | head -1)}"
 else
-  # Use first resolved IP
-  TARGET_IP=$(dig +short "msp.$DOMAIN" A | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' | head -1)
+  CLEAN_TARGET_IP=$(dig +short "msp.$DOMAIN" A | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' | head -1)
+  CLIENTC_TARGET_IP=$(dig +short "clientc.$DOMAIN" A | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' | head -1)
 fi
 
-if [[ -n "$TARGET_IP" ]]; then
-  log_info "Scanning ports on $TARGET_IP..."
+if [[ -n "$CLEAN_TARGET_IP" ]]; then
+  log_info "Scanning clean host ports on $CLEAN_TARGET_IP..."
 
-  # Ports that should be open
-  OPEN_PORTS=(80 443 5432)
-  for port in "${OPEN_PORTS[@]}"; do
-    if nc -z -w 3 "$TARGET_IP" "$port" 2>/dev/null; then
-      log_pass "Port $port - OPEN on $TARGET_IP"
+  for port in 80 443; do
+    if nc -z -w 3 "$CLEAN_TARGET_IP" "$port" 2>/dev/null; then
+      log_pass "Port $port - OPEN on clean IP $CLEAN_TARGET_IP"
     else
-      log_fail "Port $port - CLOSED on $TARGET_IP (expected open)"
+      log_fail "Port $port - CLOSED on clean IP $CLEAN_TARGET_IP (expected open)"
     fi
   done
 
-  # Ports that should be closed (common scanner targets)
   CLOSED_PORTS=(21 22 23 25 110 143 445 3389 5900 6379 8080 8443 27017)
   for port in "${CLOSED_PORTS[@]}"; do
-    if nc -z -w 2 "$TARGET_IP" "$port" 2>/dev/null; then
+    if nc -z -w 2 "$CLEAN_TARGET_IP" "$port" 2>/dev/null; then
       if [[ $port -eq 22 ]]; then
-        log_warn "Port 22 (SSH) - OPEN (may be restricted by SG to admin IP)"
+        log_warn "Port 22 (SSH) - OPEN on clean IP (may be restricted by SG to admin IP)"
       else
-        log_fail "Port $port - OPEN on $TARGET_IP (should be closed)"
+        log_fail "Port $port - OPEN on clean IP $CLEAN_TARGET_IP (should be closed)"
       fi
     else
-      log_pass "Port $port - CLOSED on $TARGET_IP"
+      log_pass "Port $port - CLOSED on clean IP $CLEAN_TARGET_IP"
     fi
   done
 else
-  log_warn "Could not determine target IP for port scan"
+  log_warn "Could not determine clean target IP for port scan"
 fi
 
-# Test dummy listener on port 5432
-log_info "Testing dummy PostgreSQL listener on port 5432..."
-if [[ -n "$TARGET_IP" ]]; then
-  # Try to connect and read banner
-  banner=$(echo "" | nc -w 3 "$TARGET_IP" 5432 2>/dev/null | head -1 || echo "")
+if [[ -n "$CLIENTC_TARGET_IP" ]]; then
+  log_info "Scanning Client C ports on $CLIENTC_TARGET_IP..."
+
+  for port in 80 443 5432; do
+    if nc -z -w 3 "$CLIENTC_TARGET_IP" "$port" 2>/dev/null; then
+      log_pass "Port $port - OPEN on Client C IP $CLIENTC_TARGET_IP"
+    else
+      log_fail "Port $port - CLOSED on Client C IP $CLIENTC_TARGET_IP (expected open)"
+    fi
+  done
+
+  banner=$(echo "" | nc -w 3 "$CLIENTC_TARGET_IP" 5432 2>/dev/null | head -1 || echo "")
   if echo "$banner" | grep -qi "PostgreSQL"; then
     log_pass "Port 5432 - Dummy listener responds with PostgreSQL banner: $banner"
   elif [[ -n "$banner" ]]; then
@@ -403,6 +384,8 @@ if [[ -n "$TARGET_IP" ]]; then
   else
     log_fail "Port 5432 - No response from dummy listener"
   fi
+else
+  log_warn "Could not determine Client C target IP for port scan"
 fi
 
 # --- 8. DNS/Email Records ---

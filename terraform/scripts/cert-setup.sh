@@ -211,22 +211,26 @@ systemctl start certbot.timer
 log "Certbot timer enabled"
 
 # ============================================================================
-# STEP 7: START DUMMY LISTENER
-# ============================================================================
+# STEP 7: START DUMMY LISTENER (CLIENT C ONLY)
+# ==========================================================================
 
-log "Step 7: Starting dummy PostgreSQL listener..."
+if [ "${INSTANCE_ROLE}" = "clientc" ]; then
+  log "Step 7: Starting dummy PostgreSQL listener on Client C..."
 
-systemctl enable paleon-dummy-listener.service
-systemctl start paleon-dummy-listener.service
+  systemctl enable paleon-dummy-listener.service
+  systemctl start paleon-dummy-listener.service
 
-# Wait a moment for it to start
-sleep 2
+  # Wait a moment for it to start
+  sleep 2
 
-if systemctl is-active --quiet paleon-dummy-listener.service; then
-  log "Dummy listener started successfully"
+  if systemctl is-active --quiet paleon-dummy-listener.service; then
+    log "Dummy listener started successfully"
+  else
+    log "WARNING: Dummy listener may not be running"
+    systemctl status paleon-dummy-listener.service --no-pager
+  fi
 else
-  log "WARNING: Dummy listener may not be running"
-  systemctl status paleon-dummy-listener.service --no-pager
+  log "Step 7: Skipping dummy PostgreSQL listener on clean instance."
 fi
 
 # ============================================================================

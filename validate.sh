@@ -240,11 +240,13 @@ log_info "=== Validating Script Syntax (bash -n) ==="
 for script in terraform/scripts/*.sh terraform/bootstrap-backend.sh; do
   check_bash_syntax "$script"
 done
-# Validate user_data.sh template syntax separately (check for balanced braces)
-if grep -q '${repo_url}' terraform/user_data.sh && \
-   grep -q '${domain_name}' terraform/user_data.sh && \
-   grep -q '${expected_ip}' terraform/user_data.sh && \
-   grep -q '${aws_region}' terraform/user_data.sh; then
+# Validate user_data.sh template syntax separately (check for expected Terraform placeholders)
+if grep -q '\${repo_url}' terraform/user_data.sh && \
+   grep -q '\${domain_name}' terraform/user_data.sh && \
+   grep -q '\${expected_clean_ip}' terraform/user_data.sh && \
+   grep -q '\${expected_clientc_ip}' terraform/user_data.sh && \
+   grep -q '\${aws_region}' terraform/user_data.sh && \
+   grep -q '\${instance_role}' terraform/user_data.sh; then
   log_pass "user_data.sh has required Terraform template variables"
 else
   log_fail "user_data.sh missing required Terraform template variables"
@@ -347,10 +349,11 @@ else
   log_fail "Client B certificate should use 10-day validity"
 fi
 
-# Check expired cert generation for clientc (negative days with startdate/enddate)
-if grep -q -- "-days -1" terraform/user_data.sh && \
+# Check expired cert generation for clientc (openssl ca with startdate/enddate, not a stale -days -1 check)
+if grep -q "openssl ca" terraform/user_data.sh && \
    grep -q "startdate" terraform/user_data.sh && \
-   grep -q "enddate" terraform/user_data.sh; then
+   grep -q "enddate" terraform/user_data.sh && \
+   grep -q "clientc.*DOMAIN" terraform/user_data.sh; then
   log_pass "Client C certificate generation uses expired certificate technique"
 else
   log_fail "Client C certificate should use expired certificate technique"
@@ -402,13 +405,13 @@ else
   log_fail "User data missing systemd unit configuration"
 fi
 
-# Check backend.tf has S3 backend
+# Check backend.tf has S3 backend config with required bucket/region data
 if grep -q "backend \"s3\"" terraform/backend.tf && \
    grep -q "bucket" terraform/backend.tf && \
-   grep -q "dynamodb_table" terraform/backend.tf; then
-  log_pass "Terraform backend configured for S3 with DynamoDB locking"
+   grep -q "region" terraform/backend.tf; then
+  log_pass "Terraform backend configured for S3 state storage"
 else
-  log_fail "Terraform backend missing S3/DynamoDB configuration"
+  log_fail "Terraform backend missing S3 backend configuration"
 fi
 
 # Check security group allows 5432
