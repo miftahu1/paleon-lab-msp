@@ -103,17 +103,26 @@ check_header() {
   return 0
 }
 
-# Get certificate info
-check_cert() {
+# Get certificate info without failing on intentionally invalid certs
+extract_certificate_pem() {
   local hostname="$1"
   local port="${2:-443}"
 
-  verbose "Checking certificate for $hostname:$port"
-  cert_pem=$( { echo | openssl s_client -connect "$hostname:$port" -servername "$hostname" -showcerts 2>/dev/null || true; } )
-  cert_pem=$(echo "$cert_pem" | sed -n '/-----BEGIN CERTIFICATE-----/,/-----END CERTIFICATE-----/p' | sed -n '1,200p' )
-  if [[ -z "${cert_pem}" ]]; then
+  verbose "Retrieving certificate for $hostname:$port"
+  { echo | openssl s_client -connect "$hostname:$port" -servername "$hostname" -showcerts 2>/dev/null || true; } \
+    | awk 'BEGIN { p = 0 } /-----BEGIN CERTIFICATE-----/ { p = 1 } p { print } /-----END CERTIFICATE-----/ { exit }'
+}
+
+check_cert() {
+  local hostname="$1"
+  local port="${2:-443}"
+  local cert_pem
+
+  cert_pem=$(extract_certificate_pem "$hostname" "$port")
+  if [[ -z "$cert_pem" ]]; then
     return 1
   fi
+
   echo "$cert_pem" | openssl x509 -noout -dates -subject -issuer -ext subjectAltName 2>/dev/null || true
   return 0
 }
@@ -121,30 +130,43 @@ check_cert() {
 # Parse certificate expiration
 parse_cert_expiry() {
   local cert_output="$1"
-  local not_after=$(echo "$cert_output" | grep "notAfter=" | cut -d= -f2)
+  local not_after
+  not_after=$(echo "$cert_output" | grep "notAfter=" | cut -d= -f2- || true)
   if [[ -n "$not_after" ]]; then
-    date -d "$not_after" +%s 2>/dev/null || date -j -f "%b %d %H:%M:%S %Y %Z" "$not_after" +%s 2>/dev/null
+    date -d "$not_after" +%s 2>/dev/null || date -j -f "%b %d %H:%M:%S %Y %Z" "$not_after" +%s 2>/dev/null || true
   fi
 }
 
 # Determine certificate properties (validity, expired, self-signed)
 analyze_certificate() {
   local certfile_or_pem="$1"
-  local notbefore notafter subject issuer san
-  # read from file or stdin
+  local cert_text
+  local notbefore notafter subject issuer san expiry_epoch now expired expiring self_signed
+
   if [[ -f "$certfile_or_pem" ]]; then
     cert_text=$(openssl x509 -in "$certfile_or_pem" -noout -dates -subject -issuer -ext subjectAltName 2>/dev/null || true)
   else
-    cert_text=$(echo "$certfile_or_pem" | openssl x509 -noout -dates -subject -issuer -ext subjectAltName 2>/dev/null || true)
+    cert_text=$(printf '%s\n' "$certfile_or_pem" | openssl x509 -noout -dates -subject -issuer -ext subjectAltName 2>/dev/null || true)
+  fi
+
+  if [[ -z "$cert_text" ]]; then
+    echo "notBefore="
+    echo "notAfter="
+    echo "subject="
+    echo "issuer="
+    echo "san="
+    echo "expired=false"
+    echo "expiring=false"
+    echo "self_signed=false"
+    return 1
   fi
 
   notbefore=$(echo "$cert_text" | grep "notBefore=" | cut -d= -f2- || true)
   notafter=$(echo "$cert_text" | grep "notAfter=" | cut -d= -f2- || true)
-  subject=$(echo "$cert_text" | grep "subject=" | sed -E 's/^subject=//' | sed -e 's/^[[:space:]]*//')
-  issuer=$(echo "$cert_text" | grep "issuer=" | sed -E 's/^issuer=//' | sed -e 's/^[[:space:]]*//')
-  san=$(echo "$cert_text" | sed -n '/X509v3 Subject Alternative Name:/,/^$/p' | tr -d '\n' | sed -e 's/X509v3 Subject Alternative Name://')
+  subject=$(echo "$cert_text" | grep "subject=" | sed -E 's/^subject=//' | sed -e 's/^[[:space:]]*//' || true)
+  issuer=$(echo "$cert_text" | grep "issuer=" | sed -E 's/^issuer=//' | sed -e 's/^[[:space:]]*//' || true)
+  san=$(echo "$cert_text" | sed -n '/X509v3 Subject Alternative Name:/,/^$/p' | tr -d '\n' | sed -e 's/X509v3 Subject Alternative Name://' || true)
 
-  # expiry handling
   if [[ -n "$notafter" ]]; then
     expiry_epoch=$(date -d "$notafter" +%s 2>/dev/null || date -j -f "%b %d %H:%M:%S %Y %Z" "$notafter" +%s 2>/dev/null || echo 0)
   else
@@ -155,22 +177,18 @@ analyze_certificate() {
   expired=false
   expiring=false
   if [[ $expiry_epoch -gt 0 ]]; then
-    if [[ $expiry_epoch -lt $now ]]; then
+    if (( expiry_epoch < now )); then
       expired=true
-    elif [[ $((expiry_epoch - now)) -le $((10*24*3600)) ]]; then
+    elif (( expiry_epoch - now <= 10*24*3600 )); then
       expiring=true
     fi
   fi
 
-  # self-signed detection: subject equals issuer
   self_signed=false
-  if [[ -n "$subject" && -n "$issuer" ]]; then
-    if [[ "$subject" == "$issuer" ]]; then
-      self_signed=true
-    fi
+  if [[ -n "$subject" && -n "$issuer" && "$subject" == "$issuer" ]]; then
+    self_signed=true
   fi
 
-  # Print a concise summary to stdout for caller
   echo "notBefore=$notbefore"
   echo "notAfter=$notafter"
   echo "subject=$subject"
@@ -179,6 +197,7 @@ analyze_certificate() {
   echo "expired=$expired"
   echo "expiring=$expiring"
   echo "self_signed=$self_signed"
+  return 0
 }
 # ============================================================================
 # VERIFICATION START
@@ -320,61 +339,92 @@ log_section "TLS Certificate Verification"
 for fqdn in "${FQDNS[@]}"; do
   log_info "Checking certificate for $fqdn..."
 
-  cert_info=$(check_cert "$fqdn")
-
-  if [[ -z "$cert_info" ]]; then
+  cert_pem=$(extract_certificate_pem "$fqdn")
+  if [[ -z "$cert_pem" ]]; then
     log_fail "$fqdn - Could not retrieve certificate"
     continue
   fi
 
-  verbose "Certificate info:\n$cert_info"
+  cert_analysis=$(analyze_certificate "$cert_pem")
+  if [[ $? -ne 0 ]]; then
+    log_fail "$fqdn - Certificate could not be parsed"
+    continue
+  fi
 
-  # Check expiration
-  expiry_epoch=$(parse_cert_expiry "$cert_info")
-  now_epoch=$(date +%s)
-  days_until_expiry=$(( (expiry_epoch - now_epoch) / 86400 ))
+  verbose "Certificate analysis:\n$cert_analysis"
+
+  not_before=$(echo "$cert_analysis" | awk -F= '/^notBefore=/{sub(/^notBefore=/, ""); print; exit}')
+  not_after=$(echo "$cert_analysis" | awk -F= '/^notAfter=/{sub(/^notAfter=/, ""); print; exit}')
+  issuer=$(echo "$cert_analysis" | awk -F= '/^issuer=/{sub(/^issuer=/, ""); print; exit}')
+  subject=$(echo "$cert_analysis" | awk -F= '/^subject=/{sub(/^subject=/, ""); print; exit}')
+  san=$(echo "$cert_analysis" | awk -F= '/^san=/{sub(/^san=/, ""); print; exit}')
+  expired=$(echo "$cert_analysis" | awk -F= '/^expired=/{print $2; exit}')
+  expiring=$(echo "$cert_analysis" | awk -F= '/^expiring=/{print $2; exit}')
+  self_signed=$(echo "$cert_analysis" | awk -F= '/^self_signed=/{print $2; exit}')
+
+  if [[ -n "$not_after" ]]; then
+    expiry_epoch=$(date -d "$not_after" +%s 2>/dev/null || date -j -f "%b %d %H:%M:%S %Y %Z" "$not_after" +%s 2>/dev/null || echo 0)
+    now_epoch=$(date +%s)
+    days_until_expiry=$(( (expiry_epoch - now_epoch) / 86400 ))
+  else
+    expiry_epoch=0
+    days_until_expiry=0
+  fi
 
   case "$fqdn" in
     "clientb.$DOMAIN")
-      if [[ $days_until_expiry -gt 0 && $days_until_expiry -le 15 ]]; then
-        log_pass "$fqdn - Certificate expiring in ~$days_until_expiry days (expected ~10)"
-      elif [[ $days_until_expiry -le 0 ]]; then
+      if [[ "$expired" == "true" ]]; then
         log_fail "$fqdn - Certificate already expired (expected expiring in ~10 days)"
+      elif [[ "$expiring" == "true" || "$days_until_expiry" -gt 0 && "$days_until_expiry" -le 15 ]]; then
+        log_pass "$fqdn - Certificate expiring in ~$days_until_expiry days (expected ~10)"
       else
         log_warn "$fqdn - Certificate expires in $days_until_expiry days (expected ~10)"
       fi
       ;;
     "clientc.$DOMAIN")
-      if [[ $days_until_expiry -lt 0 ]]; then
-        log_pass "$fqdn - Certificate expired $(( -days_until_expiry )) days ago (expected)"
+      if [[ "$expired" == "true" ]]; then
+        log_pass "$fqdn - Certificate expired (expected)"
       else
         log_fail "$fqdn - Certificate not expired (expires in $days_until_expiry days)"
       fi
       ;;
     *)
-      if [[ $days_until_expiry -gt 30 ]]; then
+      if [[ "$expired" == "true" ]]; then
+        log_fail "$fqdn - Certificate expired"
+      elif [[ "$days_until_expiry" -gt 30 ]]; then
         log_pass "$fqdn - Certificate valid for $days_until_expiry days"
-      elif [[ $days_until_expiry -gt 0 ]]; then
+      elif [[ "$days_until_expiry" -gt 0 ]]; then
         log_warn "$fqdn - Certificate expires soon ($days_until_expiry days)"
       else
-        log_fail "$fqdn - Certificate expired"
+        log_fail "$fqdn - Certificate expiration unknown"
       fi
       ;;
   esac
 
-  # Check issuer
-  if echo "$cert_info" | grep -q "Let's Encrypt"; then
-    if [[ "$fqdn" == "msp.$DOMAIN" || "$fqdn" == "clienta.$DOMAIN" || "$fqdn" == "clientd.$DOMAIN" ]]; then
-      log_pass "$fqdn - Let's Encrypt certificate (expected)"
-    else
-      log_warn "$fqdn - Let's Encrypt certificate (unexpected for this host)"
+  if [[ -n "$issuer" ]]; then
+    if echo "$issuer" | grep -qi "Let's Encrypt"; then
+      if [[ "$fqdn" == "msp.$DOMAIN" || "$fqdn" == "clienta.$DOMAIN" || "$fqdn" == "clientd.$DOMAIN" ]]; then
+        log_pass "$fqdn - Let's Encrypt certificate (expected)"
+      else
+        log_warn "$fqdn - Let's Encrypt certificate (unexpected for this host)"
+      fi
+    elif [[ "$self_signed" == "true" ]]; then
+      if [[ "$fqdn" == "clientb.$DOMAIN" || "$fqdn" == "clientc.$DOMAIN" ]]; then
+        log_pass "$fqdn - Self-signed certificate (expected)"
+      else
+        log_warn "$fqdn - Self-signed certificate (unexpected for this host)"
+      fi
     fi
-  elif echo "$cert_info" | grep -q "self-signed\|CN=$fqdn"; then
-    if [[ "$fqdn" == "clientb.$DOMAIN" || "$fqdn" == "clientc.$DOMAIN" ]]; then
-      log_pass "$fqdn - Self-signed certificate (expected)"
-    else
-      log_warn "$fqdn - Self-signed certificate (unexpected for this host)"
-    fi
+  fi
+
+  if [[ -n "$subject" ]]; then
+    log_info "$fqdn - subject=$subject"
+  fi
+  if [[ -n "$issuer" ]]; then
+    log_info "$fqdn - issuer=$issuer"
+  fi
+  if [[ -n "$san" ]]; then
+    log_info "$fqdn - SAN=$san"
   fi
 done
 

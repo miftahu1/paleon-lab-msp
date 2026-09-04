@@ -540,9 +540,20 @@ else
   log_fail "Client C user_data must copy only HEAD/config or use safe 'cp -r source/.git/.' pattern (avoid nested .git/.git)"
 fi
 
-if grep -q 'for host in msp clienta clientb clientd; do' terraform/user_data.sh && \
-   grep -q 'CLEAN_HOSTNAMES' terraform/scripts/cert-setup.sh && \
-   ! grep -q 'CLEAN_HOSTNAMES.*clientb' terraform/scripts/cert-setup.sh; then
+clean_block=$(awk '
+  /^CLEAN_HOSTNAMES=/ { in_block=1; print; next }
+  in_block && /^#/ { next }
+  in_block && /^SELF_SIGNED_HOSTNAMES=/ { in_block=0; exit }
+  in_block { print }
+' terraform/scripts/cert-setup.sh)
+
+if printf '%s\n' "$clean_block" | grep -q 'CLEAN_HOSTNAMES=("msp" "clienta" "clientd")' && \
+   printf '%s\n' "$clean_block" | grep -q 'msp' && \
+   printf '%s\n' "$clean_block" | grep -q 'clienta' && \
+   printf '%s\n' "$clean_block" | grep -q 'clientd' && \
+   ! printf '%s\n' "$clean_block" | grep -q 'clientb' && \
+   ! printf '%s\n' "$clean_block" | grep -q 'clientc' && \
+   grep -q 'for host in msp clienta clientb clientd; do' terraform/user_data.sh; then
   log_pass "Clean role enables final HTTPS for msp clienta clientb clientd; certbot requests only for msp clienta clientd"
 else
   log_fail "Clean role loops incorrect: user_data should enable clientb; cert-setup should not request certbot for clientb"
