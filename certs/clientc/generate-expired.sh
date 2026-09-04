@@ -8,7 +8,6 @@ set -euo pipefail
 # Configuration
 DOMAIN="${1:-paleon-lab-msp.com}"
 HOSTNAME="clientc.${DOMAIN}"
-# Certificate valid from 30 days ago to 1 day ago (expired)
 OUTPUT_DIR="$(dirname "$0")/../../tmp/certs/clientc"
 
 log() {
@@ -19,67 +18,87 @@ log "Generating EXPIRED certificate for ${HOSTNAME}"
 log "  notBefore: 30 days ago"
 log "  notAfter:  1 day ago (EXPIRED)"
 
-# Create output directory
 mkdir -p "${OUTPUT_DIR}"
+openssl genrsa -out "${OUTPUT_DIR}/${HOSTNAME}.key" 2048 >/dev/null 2>&1
 
-# Generate private key
-log "Generating private key..."
-openssl genrsa -out "${OUTPUT_DIR}/${HOSTNAME}.key" 2048
-
-# Calculate dates for OpenSSL
-# OpenSSL expects format: YYMMDDHHMMSSZ
-# notBefore: 30 days ago
-# notAfter: 1 day ago
-START_DATE=$(date -d '30 days ago' +'%Y%m%d%H%M%S')Z 2>/dev/null || date -v-30d +'%Y%m%d%H%M%S'Z 2>/dev/null
-END_DATE=$(date -d '1 day ago' +'%Y%m%d%H%M%S')Z 2>/dev/null || date -v-1d +'%Y%m%d%H%M%S'Z 2>/dev/null
-
-# Convert to OpenSSL format (YYMMDDHHMMSSZ)
-OPENSSL_STARTDATE=$(date -d '30 days ago' +'%y%m%d%H%M%S')Z 2>/dev/null || date -v-30d +'%y%m%d%H%M%S'Z 2>/dev/null
-OPENSSL_ENDDATE=$(date -d '1 day ago' +'%y%m%d%H%M%S')Z 2>/dev/null || date -v-1d +'%y%m%d%H%M%S'Z 2>/dev/null
-
-log "OpenSSL startdate: ${OPENSSL_STARTDATE}"
-log "OpenSSL enddate:   ${OPENSSL_ENDDATE}"
-
-# Generate self-signed certificate with explicit dates
-# Use -days -1 with -startdate and -enddate to create expired cert
-log "Generating expired self-signed certificate..."
+# Deterministic expired cert using CA + explicit validity window
 openssl req -x509 -new -key "${OUTPUT_DIR}/${HOSTNAME}.key" \
   -out "${OUTPUT_DIR}/${HOSTNAME}.crt" \
-  -days -1 \
+  -days 3650 \
+  -subj "/CN=${HOSTNAME}" \
+  -addext "subjectAltName=DNS:${HOSTNAME}" >/dev/null 2>&1
+
+CA_KEY="${OUTPUT_DIR}/clientc-ca.key"
+CA_CERT="${OUTPUT_DIR}/clientc-ca.crt"
+CSR="${OUTPUT_DIR}/${HOSTNAME}.csr"
+CNF="${OUTPUT_DIR}/clientc-ca.cnf"
+INDEX="${OUTPUT_DIR}/clientc-ca.index"
+SERIAL="${OUTPUT_DIR}/clientc-ca.serial"
+
+openssl genrsa -out "${CA_KEY}" 2048 >/dev/null 2>&1
+openssl req -x509 -new -key "${CA_KEY}" \
+  -sha256 -days 3650 \
+  -subj "/CN=Paleon Client C Test Root" \
+  -out "${CA_CERT}" \
+  -addext "basicConstraints=critical,CA:TRUE" \
+  -addext "keyUsage=critical,keyCertSign,cRLSign" >/dev/null 2>&1
+
+openssl req -new -key "${OUTPUT_DIR}/${HOSTNAME}.key" \
   -subj "/CN=${HOSTNAME}" \
   -addext "subjectAltName=DNS:${HOSTNAME}" \
-  -startdate "${OPENSSL_STARTDATE}" \
-  -enddate "${OPENSSL_ENDDATE}"
+  -out "${CSR}" >/dev/null 2>&1
 
-# Set permissions
+cat > "${CNF}" <<EOF
+[ ca ]
+default_ca = CA_default
+
+[ CA_default ]
+private_key = ${CA_KEY}
+certificate = ${CA_CERT}
+database = ${INDEX}
+new_certs_dir = ${OUTPUT_DIR}
+serial = ${SERIAL}
+default_md = sha256
+policy = policy_any
+x509_extensions = v3_server
+
+[ policy_any ]
+commonName = supplied
+
+[ v3_server ]
+subjectAltName = DNS:${HOSTNAME}
+basicConstraints = CA:FALSE
+keyUsage = critical, digitalSignature, keyEncipherment
+extendedKeyUsage = serverAuth
+EOF
+
+: > "${INDEX}"
+printf '1000\n' > "${SERIAL}"
+START_DATE=$(date -u -d '30 days ago' +'%Y%m%d%H%M%SZ')
+END_DATE=$(date -u -d '1 day ago' +'%Y%m%d%H%M%SZ')
+openssl ca -batch -config "${CNF}" \
+  -in "${CSR}" \
+  -out "${OUTPUT_DIR}/${HOSTNAME}.crt" \
+  -startdate "${START_DATE}" \
+  -enddate "${END_DATE}" >/dev/null 2>&1
+
 chmod 640 "${OUTPUT_DIR}/${HOSTNAME}.key"
 chmod 644 "${OUTPUT_DIR}/${HOSTNAME}.crt"
 
-# Verify
 log "Certificate details:"
-openssl x509 -in "${OUTPUT_DIR}/${HOSTNAME}.crt" -noout -dates -subject -issuer
+openssl x509 -in "${OUTPUT_DIR}/${HOSTNAME}.crt" -noout -dates -subject -issuer -ext subjectAltName
 
-# Double-check expiration
 EXPIRY=$(openssl x509 -in "${OUTPUT_DIR}/${HOSTNAME}.crt" -noout -enddate | cut -d= -f2)
-log "Certificate notAfter: ${EXPIRY}"
-
+EXPIRY_EPOCH=$(date -d "${EXPIRY}" +%s)
 NOW=$(date +%s)
-EXPIRY_EPOCH=$(date -d "${EXPIRY}" +%s 2>/dev/null || date -j -f "%b %d %H:%M:%S %Y %Z" "${EXPIRY}" +%s 2>/dev/null)
 
-if [[ $EXPIRY_EPOCH -lt $NOW ]]; then
-  DAYS_EXPIRED=$(( (NOW - EXPIRY_EPOCH) / 86400 ))
-  log "CONFIRMED: Certificate is EXPIRED by ${DAYS_EXPIRED} day(s)"
+if [[ "${EXPIRY_EPOCH}" -lt "${NOW}" ]]; then
+  log "CONFIRMED: Certificate is expired and notAfter is in the past"
 else
-  log "WARNING: Certificate appears to NOT be expired!"
+  log "ERROR: Generated certificate is not expired" >&2
+  exit 1
 fi
 
-log ""
 log "Certificate generated in ${OUTPUT_DIR}/"
 log "  Private key: ${HOSTNAME}.key"
 log "  Certificate: ${HOSTNAME}.crt"
-log ""
-log "To use in nginx, copy to /etc/ssl/certs/ on the server:"
-log "  cp ${OUTPUT_DIR}/${HOSTNAME}.crt /etc/ssl/certs/"
-log "  cp ${OUTPUT_DIR}/${HOSTNAME}.key /etc/ssl/certs/"
-log "  chmod 640 /etc/ssl/certs/${HOSTNAME}.key"
-log "  chmod 644 /etc/ssl/certs/${HOSTNAME}.crt"

@@ -303,14 +303,19 @@ else
   log_fail "Client C .git/config missing or incorrect remote URL"
 fi
 
-# Check clientc nginx allows .git access
-if grep -q "location /.git/HEAD" nginx/http-bootstrap/clientc.conf && \
-   grep -q "location /.git/config" nginx/http-bootstrap/clientc.conf && \
-   grep -q "location /.git/HEAD" nginx/https-final/clientc.conf && \
-   grep -q "location /.git/config" nginx/https-final/clientc.conf; then
-  log_pass "Client C nginx configs allow .git/HEAD and .git/config access"
+# Check clientc nginx allows .git access only in HTTPS final, and NOT in HTTP bootstrap
+if grep -q "location .*\.git/HEAD" nginx/https-final/clientc.conf && \
+   grep -q "location .*\.git/config" nginx/https-final/clientc.conf; then
+  log_pass "Client C HTTPS config allows .git/HEAD and .git/config"
 else
-  log_fail "Client C nginx configs missing .git access configuration"
+  log_fail "Client C HTTPS config missing .git access configuration"
+fi
+
+if grep -q "\.git/HEAD" nginx/http-bootstrap/clientc.conf || \
+   grep -q "\.git/config" nginx/http-bootstrap/clientc.conf; then
+  log_fail "Client C HTTP bootstrap must NOT expose .git/HEAD or .git/config"
+else
+  log_pass "Client C HTTP bootstrap does not expose .git files"
 fi
 
 # Check clientb missing X-Content-Type-Options in HTTPS
@@ -439,7 +444,7 @@ fi
 # --- 9. expected.yaml Validation ---
 log_info "=== Validating expected.yaml Structure ==="
 if command -v python3 >/dev/null 2>&1; then
-  python3 << 'PYEOF'
+  if python3 << 'PYEOF'
 import yaml
 import sys
 
@@ -452,7 +457,6 @@ for key in required_keys:
         print(f"FAIL: expected.yaml missing required key: {key}")
         sys.exit(1)
 
-# Check all 5 hostnames present
 hostnames = [h['name'] for h in data['hostnames']]
 expected_hostnames = [
     'msp.paleon-lab-msp.com',
@@ -466,7 +470,6 @@ for hn in expected_hostnames:
         print(f"FAIL: expected.yaml missing hostname: {hn}")
         sys.exit(1)
 
-# Check client postures
 postures = {h['name']: h['posture'] for h in data['hostnames']}
 assert postures['msp.paleon-lab-msp.com'] == 'clean'
 assert postures['clienta.paleon-lab-msp.com'] == 'clean'
@@ -474,7 +477,6 @@ assert postures['clientb.paleon-lab-msp.com'] == 'subtle'
 assert postures['clientc.paleon-lab-msp.com'] == 'neglected'
 assert postures['clientd.paleon-lab-msp.com'] == 'clean'
 
-# Check summary counts
 summary = data['summary']
 assert summary['total_expected_findings'] == 8
 assert summary['by_category']['tls'] == 2
@@ -485,7 +487,7 @@ assert summary['by_category']['open_ports'] == 1
 
 print("PASS: expected.yaml structure and content validated")
 PYEOF
-  if [[ $? -eq 0 ]]; then
+  then
     log_pass "expected.yaml structure validated"
   else
     log_fail "expected.yaml structure validation failed"
@@ -503,6 +505,70 @@ if grep -q "TLSv1.2" nginx/snippets/ssl-params.conf && \
   log_pass "SSL parameters snippet has strong TLS configuration"
 else
   log_fail "SSL parameters snippet missing strong TLS configuration"
+fi
+
+# --- 11. Bootstrap location validation ---
+log_info "=== Validating bootstrap location blocks ==="
+for file in nginx/http-bootstrap/*.conf; do
+  count=$(grep -c 'location / {' "$file" || true)
+  if [[ "$count" -eq 1 ]]; then
+    log_pass "$file has exactly one location / block"
+  else
+    log_fail "$file has $count location / blocks (expected exactly 1)"
+  fi
+done
+
+# --- 12. Client C deployment and role validation ---
+log_info "=== Validating Client C and role separation ==="
+if [[ -f "website/clientc/.git/HEAD" && -f "website/clientc/.git/config" ]]; then
+  log_pass "Client C git metadata files are present at the expected paths"
+else
+  log_fail "Client C git metadata files missing from expected paths"
+fi
+
+if grep -q "cp /opt/paleon/website/clientc/.git/HEAD" terraform/user_data.sh || \
+   grep -q "cp /opt/paleon/website/clientc/.git/config" terraform/user_data.sh || \
+   grep -q "cp -r /opt/paleon/website/clientc/.git/\. \$\{WEBSITE_ROOT\}/clientc/.git/" terraform/user_data.sh; then
+  log_pass "Client C user_data deploys .git safely (explicit files or safe cp -r source/.git/. pattern)"
+else
+  log_fail "Client C user_data must copy only HEAD/config or use safe 'cp -r source/.git/.' pattern (avoid nested .git/.git)"
+fi
+
+if grep -q 'for host in msp clienta clientb clientd; do' terraform/user_data.sh && \
+   grep -q 'for host in msp clienta clientb clientd; do' terraform/scripts/cert-setup.sh; then
+  log_pass "Clean role is limited to msp clienta clientb clientd"
+else
+  log_fail "Clean role must not include clientc in enablement loops"
+fi
+
+if grep -qE "ln -sf.*clientc.conf" terraform/user_data.sh && \
+   grep -qE "ln -sf.*clientc.conf" terraform/scripts/cert-setup.sh; then
+  log_pass "Client C role enables clientc.conf in both bootstrap and cert-setup as expected"
+else
+  log_fail "Client C role must enable only clientc.conf (check ln -sf usage)"
+fi
+
+if grep -q 'systemctl enable paleon-dummy-listener.service' terraform/scripts/cert-setup.sh && \
+   ! grep -q 'systemctl enable paleon-dummy-listener.service' terraform/user_data.sh && \
+   ! grep -q 'systemctl start paleon-dummy-listener.service' terraform/user_data.sh; then
+  log_pass "Dummy listener enabling/starting is only performed by Client C role logic"
+else
+  log_fail "Dummy listener must be role-gated to Client C only (enable/start should not appear in user_data.sh)"
+fi
+
+# --- 13. verify.sh variable safety ---
+log_info "=== Validating verify.sh variable definitions ==="
+if grep -q 'CLEAN_IP' verify.sh && grep -q 'CLIENTC_IP' verify.sh && \
+   grep -q 'EXPECTED_CLEAN_IP' verify.sh && grep -q 'EXPECTED_CLIENTC_IP' verify.sh; then
+  log_pass "verify.sh defines expected clean/clientc variables before use"
+else
+  log_fail "verify.sh is missing required clean/clientc variable definitions"
+fi
+
+if grep -q 'CLEAN_TARGET_IP' verify.sh && grep -q 'CLIENTC_TARGET_IP' verify.sh; then
+  log_pass "verify.sh defines clean/clientc target variables"
+else
+  log_fail "verify.sh target IP variables are missing"
 fi
 
 # --- SUMMARY ---

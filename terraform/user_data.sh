@@ -109,7 +109,9 @@ if [ "$${INSTANCE_ROLE}" = "clean" ]; then
   cp /opt/paleon/website/clientc/.git/config "$${WEBSITE_ROOT}/clientc/.git/config"
 else
   mkdir -p "$${WEBSITE_ROOT}/clientc/.git"
-  cp -r /opt/paleon/website/clientc/.git "$${WEBSITE_ROOT}/clientc/.git/"
+  # Copy only the intended .git files to avoid nested .git/.git paths
+  cp /opt/paleon/website/clientc/.git/HEAD "$${WEBSITE_ROOT}/clientc/.git/HEAD"
+  cp /opt/paleon/website/clientc/.git/config "$${WEBSITE_ROOT}/clientc/.git/config"
   mkdir -p "$${WEBSITE_ROOT}/clientc"
   cp -r /opt/paleon/website/clientc/index.html "$${WEBSITE_ROOT}/clientc/index.html"
 fi
@@ -122,7 +124,7 @@ log "Website content deployed"
 log "Step 5: Deploying HTTP bootstrap Nginx configs"
 cp /opt/paleon/nginx/http-bootstrap/*.conf "$${NGINX_AVAILABLE}/"
 if [ "$${INSTANCE_ROLE}" = "clean" ]; then
-  for host in "$${HOSTNAMES[@]}"; do
+  for host in msp clienta clientb clientd; do
     ln -sf "$${NGINX_AVAILABLE}/$${host}.conf" "$${NGINX_ENABLED}/$${host}.conf"
   done
 else

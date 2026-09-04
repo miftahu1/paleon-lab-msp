@@ -15,8 +15,18 @@ NC='\033[0m'
 # Configuration (can be overridden via environment variables)
 DOMAIN="${DOMAIN:-paleon-lab-msp.com}"
 EXPECTED_IP="${EXPECTED_IP:-}"
+CLEAN_IP="${CLEAN_IP:-}"
+CLIENTC_IP="${CLIENTC_IP:-}"
+EXPECTED_CLEAN_IP="${EXPECTED_CLEAN_IP:-${CLEAN_IP:-}}"
+EXPECTED_CLIENTC_IP="${EXPECTED_CLIENTC_IP:-${CLIENTC_IP:-}}"
 TIMEOUT=10
 VERBOSE="${VERBOSE:-false}"
+
+if [[ -n "${EXPECTED_IP:-}" ]]; then
+  read -r -a EXPECTED_IPS <<< "${EXPECTED_IP}"
+  EXPECTED_CLEAN_IP="${EXPECTED_CLEAN_IP:-${EXPECTED_IPS[0]:-}}"
+  EXPECTED_CLIENTC_IP="${EXPECTED_CLIENTC_IP:-${EXPECTED_IPS[1]:-}}"
+fi
 
 # Counters
 PASS=0
@@ -25,9 +35,9 @@ WARN=0
 
 # Helper functions
 log_info() { echo -e "${BLUE}[INFO]${NC} $*"; }
-log_pass() { echo -e "${GREEN}[PASS]${NC} $*"; ((PASS++)); }
-log_fail() { echo -e "${RED}[FAIL]${NC} $*"; ((FAIL++)); }
-log_warn() { echo -e "${YELLOW}[WARN]${NC} $*"; ((WARN++)); }
+log_pass() { echo -e "${GREEN}[PASS]${NC} $*"; PASS=$((PASS + 1)); }
+log_fail() { echo -e "${RED}[FAIL]${NC} $*"; FAIL=$((FAIL + 1)); }
+log_warn() { echo -e "${YELLOW}[WARN]${NC} $*"; WARN=$((WARN + 1)); }
 log_section() { echo -e "\n${CYAN}=== $* ===${NC}"; }
 
 verbose() {
@@ -115,8 +125,9 @@ echo "====================================================================="
 echo "Paleon Test Site 5 - Post-Deployment Verification"
 echo "====================================================================="
 echo "Domain: $DOMAIN"
-if [[ -n "$EXPECTED_IP" ]]; then
-  echo "Expected IP: $EXPECTED_IP"
+if [[ -n "${EXPECTED_CLEAN_IP:-}" || -n "${EXPECTED_CLIENTC_IP:-}" ]]; then
+  echo "Expected clean IP: ${EXPECTED_CLEAN_IP:-<unset>}"
+  echo "Expected clientc IP: ${EXPECTED_CLIENTC_IP:-<unset>}"
 fi
 echo "Timestamp: $(date)"
 echo ""

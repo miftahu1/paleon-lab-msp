@@ -18,7 +18,7 @@ EXPECTED_CLIENTC_IP="EXPECTED_CLIENTC_IP_PLACEHOLDER"
 INSTANCE_ROLE="INSTANCE_ROLE_PLACEHOLDER"
 
 HOSTNAMES=("msp" "clienta" "clientb" "clientc" "clientd")
-CLEAN_HOSTNAMES=("msp" "clienta" "clientd")
+CLEAN_HOSTNAMES=("msp" "clienta" "clientb" "clientd")
 SELF_SIGNED_HOSTNAMES=("clientb" "clientc")
 
 # Paths
@@ -153,13 +153,12 @@ else
     exit 1
   fi
 
-  openssl x509 -in "${cert_path}" -noout -checkend 0 >/dev/null 2>&1
-  if [ $? -eq 0 ]; then
+  if openssl x509 -in "${cert_path}" -noout -checkend 0 >/dev/null 2>&1; then
     log "ERROR: Client C certificate unexpectedly still valid"
     exit 1
+  else
+    log "OK: ${fqdn} expired certificate present and expired"
   fi
-
-  log "OK: ${fqdn} expired certificate present and expired"
 fi
 
 # ============================================================================
@@ -171,8 +170,11 @@ log "Step 4: Deploying HTTPS final Nginx configs..."
 cp /opt/paleon/nginx/https-final/*.conf "${NGINX_AVAILABLE}/"
 
 if [ "${INSTANCE_ROLE}" = "clean" ]; then
-  for host in "${HOSTNAMES[@]}"; do
+  for host in "${CLEAN_HOSTNAMES[@]}"; do
     ln -sf "${NGINX_AVAILABLE}/${host}.conf" "${NGINX_ENABLED}/${host}.conf"
+  done
+  for host in clientc; do
+    rm -f "${NGINX_ENABLED}/${host}.conf"
   done
 else
   ln -sf "${NGINX_AVAILABLE}/clientc.conf" "${NGINX_ENABLED}/clientc.conf"
