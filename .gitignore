@@ -1,0 +1,58 @@
+# Terraform state
+terraform.tfstate
+terraform.tfstate.*
+*.tfstate
+*.tfstate.*
+
+# Terraform
+.terraform/
+.terraform.lock.hcl
+*.tfvars
+*.tfvars.local
+*.tfvars.secret
+
+# Environment & secrets
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+*.cer
+*.der
+credentials
+secrets.yaml
+secrets.yml
+
+# IDE & editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+*.out
+
+# Build artifacts
+dist/
+build/
+*.tgz
+*.tar.gz
+*.zip
+
+# OS
+ehthumbs.db
+Desktop.ini
+
+# SSH keys
+id_rsa
+id_ed25519
+id_ecdsa
+*.ppk

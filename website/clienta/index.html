@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Acme Corp - Innovative SaaS solutions for modern businesses. Streamline your workflow with our platform.">
+    <title>Acme Corp | SaaS Platform for Modern Teams</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif; line-height: 1.6; color: #1a1a2e; background: #ffffff; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+        header { background: #ffffff; border-bottom: 1px solid #e8e8ec; position: sticky; top: 0; z-index: 100; }
+        nav { display: flex; justify-content: space-between; align-items: center; height: 72px; }
+        .logo { font-weight: 700; font-size: 1.25rem; color: #1a1a2e; text-decoration: none; }
+        .logo span { color: #059669; }
+        .nav-links { display: flex; gap: 32px; list-style: none; }
+        .nav-links a { color: #475569; text-decoration: none; font-weight: 500; transition: color 0.2s; }
+        .nav-links a:hover { color: #059669; }
+        .btn { display: inline-flex; align-items: center; gap: 8px; padding: 12px 24px; border-radius: 8px; font-weight: 600; font-size: 0.875rem; text-decoration: none; transition: all 0.2s; border: none; cursor: pointer; }
+        .btn-primary { background: #059669; color: #ffffff; }
+        .btn-primary:hover { background: #047857; }
+        .btn-secondary { background: #f0fdf4; color: #059669; border: 1px solid #bbf7d0; }
+        .btn-secondary:hover { background: #dcfce7; }
+        .hero { padding: 100px 0; background: linear-gradient(180deg, #f0fdf4 0%, #ffffff 100%); }
+        .hero-content { display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: center; }
+        .hero h1 { font-size: 3.5rem; font-weight: 800; line-height: 1.1; color: #1a1a2e; margin-bottom: 24px; }
+        .hero h1 span { color: #059669; }
+        .hero p { font-size: 1.25rem; color: #475569; margin-bottom: 32px; max-width: 500px; }
+        .hero-buttons { display: flex; gap: 16px; }
+        .hero-image { background: #ecfdf5; border-radius: 16px; aspect-ratio: 4/3; display: flex; align-items: center; justify-content: center; color: #6ee7b7; font-size: 1.125rem; }
+        .section { padding: 100px 0; }
+        .section-header { text-align: center; margin-bottom: 64px; }
+        .section-header h2 { font-size: 2.5rem; font-weight: 700; color: #1a1a2e; margin-bottom: 16px; }
+        .section-header p { font-size: 1.125rem; color: #64748b; max-width: 600px; margin: 0 auto; }
+        .features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 32px; }
+        .feature-card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 32px; transition: all 0.2s; }
+        .feature-card:hover { border-color: #059669; box-shadow: 0 12px 40px rgba(5, 150, 105, 0.1); transform: translateY(-4px); }
+        .feature-icon { width: 48px; height: 48px; background: #ecfdf5; border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-bottom: 20px; color: #059669; }
+        .feature-card h3 { font-size: 1.25rem; font-weight: 600; color: #1a1a2e; margin-bottom: 12px; }
+        .feature-card p { color: #64748b; line-height: 1.7; }
+        .testimonials { background: #f8fafc; }
+        .testimonials-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 32px; }
+        .testimonial { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 32px; }
+        .testimonial p { font-size: 1.125rem; color: #1a1a2e; line-height: 1.7; margin-bottom: 20px; font-style: italic; }
+        .testimonial-author { display: flex; align-items: center; gap: 12px; }
+        .testimonial-avatar { width: 48px; height: 48px; border-radius: 50%; background: #d1fae5; display: flex; align-items: center; justify-content: center; font-weight: 600; color: #059669; }
+        .testimonial-info h4 { font-weight: 600; color: #1a1a2e; }
+        .testimonial-info p { margin: 0; font-size: 0.875rem; color: #64748b; font-style: normal; }
+        .cta { background: #064e3b; color: #ffffff; text-align: center; }
+        .cta h2 { font-size: 2.5rem; font-weight: 700; margin-bottom: 16px; }
+        .cta p { font-size: 1.125rem; color: #a7f3d0; margin-bottom: 32px; max-width: 600px; margin-left: auto; margin-right: auto; }
+        footer { background: #0f172a; color: #ffffff; padding: 64px 0 32px; }
+        .footer-grid { display: grid; grid-template-columns: 2fr repeat(3, 1fr); gap: 48px; margin-bottom: 48px; }
+        .footer-brand p { color: #94a3b8; margin-top: 16px; max-width: 300px; }
+        .footer-column h4 { font-size: 0.875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #94a3b8; margin-bottom: 20px; }
+        .footer-column ul { list-style: none; }
+        .footer-column li { margin-bottom: 12px; }
+        .footer-column a { color: #cbd5e1; text-decoration: none; transition: color 0.2s; }
+        .footer-column a:hover { color: #ffffff; }
+        .footer-bottom { border-top: 1px solid #1e293b; padding-top: 32px; display: flex; justify-content: space-between; align-items: center; color: #64748b; font-size: 0.875rem; }
+        @media (max-width: 768px) {
+            .hero-content { grid-template-columns: 1fr; text-align: center; }
+            .hero h1 { font-size: 2.5rem; }
+            .hero-buttons { justify-content: center; }
+            .nav-links { display: none; }
+            .footer-grid { grid-template-columns: 1fr; gap: 32px; }
+            .footer-bottom { flex-direction: column; gap: 16px; text-align: center; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <nav class="container">
+            <a href="/" class="logo">Acme<span>Corp</span></a>
+            <ul class="nav-links">
+                <li><a href="#features">Features</a></li>
+                <li><a href="#testimonials">Testimonials</a></li>
+                <li><a href="#pricing">Pricing</a></li>
+                <li><a href="#contact">Contact</a></li>
+            </ul>
+            <a href="#contact" class="btn btn-primary">Start Free Trial</a>
+        </nav>
+    </header>
+
+    <main>
+        <section class="hero">
+            <div class="container">
+                <div class="hero-content">
+                    <div>
+                        <h1>Build Better Products, <span>Faster</span></h1>
+                        <p>Acme Corp's platform helps modern teams ship features with confidence. Automated testing, deploy previews, and real-time collaboration—all in one workflow.</p>
+                        <div class="hero-buttons">
+                            <a href="#contact" class="btn btn-primary">Start Free Trial</a>
+                            <a href="#features" class="btn btn-secondary">See How It Works</a>
+                        </div>
+                    </div>
+                    <div class="hero-image">
+                        <svg width="280" height="200" viewBox="0 0 280 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <rect x="20" y="20" width="240" height="160" rx="12" stroke="currentColor" stroke-width="2"/>
+                            <rect x="40" y="40" width="80" height="12" rx="4" fill="currentColor" opacity="0.3"/>
+                            <rect x="160" y="40" width="80" height="12" rx="4" fill="currentColor" opacity="0.3"/>
+                            <rect x="40" y="70" width="200" height="8" rx="2" fill="currentColor" opacity="0.15"/>
+                            <rect x="40" y="90" width="200" height="8" rx="2" fill="currentColor" opacity="0.15"/>
+                            <rect x="40" y="110" width="150" height="8" rx="2" fill="currentColor" opacity="0.15"/>
+                            <rect x="40" y="140" width="120" height="36" rx="8" fill="currentColor" opacity="0.3"/>
+                            <rect x="180" y="140" width="60" height="36" rx="8" stroke="currentColor" stroke-width="2"/>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="features" class="section">
+            <div class="container">
+                <div class="section-header">
+                    <h2>Everything You Need to Ship</h2>
+                    <p>Powerful features designed for modern development workflows.</p>
+                </div>
+                <div class="features-grid">
+                    <article class="feature-card">
+                        <div class="feature-icon">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                        </div>
+                        <h3>Deploy Previews</h3>
+                        <p>Every pull request gets a live preview URL. Review changes in context before merging.</p>
+                    </article>
+                    <article class="feature-card">
+                        <div class="feature-icon">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                        </div>
+                        <h3>Automated Testing</h3>
+                        <p>Run your test suite on every commit. Parallel execution means fast feedback loops.</p>
+                    </article>
+                    <article class="feature-card">
+                        <div class="feature-icon">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                        </div>
+                        <h3>Team Collaboration</h3>
+                        <p>Real-time code review, inline comments, and integrated chat keep everyone aligned.</p>
+                    </article>
+                    <article class="feature-card">
+                        <div class="feature-icon">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                        </div>
+                        <h3>Security First</h3>
+                        <p>SOC 2 Type II certified. Encryption at rest and in transit. SSO and RBAC included.</p>
+                    </article>
+                    <article class="feature-card">
+                        <div class="feature-icon">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                        </div>
+                        <h3>Analytics & Insights</h3>
+                        <p>Track deployment frequency, lead time, and change failure rate. Improve continuously.</p>
+                    </article>
+                    <article class="feature-card">
+                        <div class="feature-icon">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+                        </div>
+                        <h3>Integrations</h3>
+                        <p>Connect with GitHub, GitLab, Slack, Jira, Datadog, and 50+ other tools.</p>
+                    </article>
+                </div>
+            </div>
+        </section>
+
+        <section id="testimonials" class="section testimonials">
+            <div class="container">
+                <div class="section-header">
+                    <h2>Trusted by Teams Everywhere</h2>
+                    <p>See what our customers have to say about their experience.</p>
+                </div>
+                <div class="testimonials-grid">
+                    <article class="testimonial">
+                        <p>"Acme Corp cut our deployment time from 45 minutes to under 5. The preview environments alone are worth the investment."</p>
+                        <div class="testimonial-author">
+                            <div class="testimonial-avatar">SC</div>
+                            <div class="testimonial-info">
+                                <h4>Sarah Chen</h4>
+                                <p>VP Engineering, TechStart Inc.</p>
+                            </div>
+                        </div>
+                    </article>
+                    <article class="testimonial">
+                        <p>"The security features gave us confidence to pass our SOC 2 audit on the first try. Compliance is now automated, not a fire drill."</p>
+                        <div class="testimonial-author">
+                            <div class="testimonial-avatar">MR</div>
+                            <div class="testimonial-info">
+                                <h4>Marcus Rodriguez</h4>
+                                <p>CTO, DataFlow Labs</p>
+                            </div>
+                        </div>
+                    </article>
+                    <article class="testimonial">
+                        <p>"Our team loves the deploy previews. Designers can review actual working features instead of static mockups. Game changer."</p>
+                        <div class="testimonial-author">
+                            <div class="testimonial-avatar">AK</div>
+                            <div class="testimonial-info">
+                                <h4>Aisha Kumar</h4>
+                                <p>Product Lead, Nova Systems</p>
+                            </div>
+                        </div>
+                    </article>
+                </div>
+            </div>
+        </section>
+
+        <section id="contact" class="section cta">
+            <div class="container">
+                <h2>Ready to Transform Your Workflow?</h2>
+                <p>Join 2,000+ teams shipping faster with Acme Corp. 14-day free trial, no credit card required.</p>
+                <a href="mailto:hello@acmecorp.example" class="btn btn-primary">Start Free Trial</a>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container">
+            <div class="footer-grid">
+                <div class="footer-brand">
+                    <a href="/" class="logo" style="color: #fff;">Acme<span>Corp</span></a>
+                    <p>The platform modern teams use to build, test, and deploy with confidence.</p>
+                </div>
+                <div class="footer-column">
+                    <h4>Product</h4>
+                    <ul>
+                        <li><a href="#features">Features</a></li>
+                        <li><a href="#pricing">Pricing</a></li>
+                        <li><a href="#">Integrations</a></li>
+                        <li><a href="#">API Docs</a></li>
+                    </ul>
+                </div>
+                <div class="footer-column">
+                    <h4>Company</h4>
+                    <ul>
+                        <li><a href="#">About</a></li>
+                        <li><a href="#">Blog</a></li>
+                        <li><a href="#">Careers</a></li>
+                        <li><a href="#">Press</a></li>
+                    </ul>
+                </div>
+                <div class="footer-column">
+                    <h4>Resources</h4>
+                    <ul>
+                        <li><a href="#">Documentation</a></li>
+                        <li><a href="#">Community</a></li>
+                        <li><a href="#">Status</a></li>
+                        <li><a href="#">Security</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <span>&copy; 2025 Acme Corp. All rights reserved.</span>
+                <span>Fictional company for testing purposes only.</span>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>

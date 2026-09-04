@@ -1,0 +1,429 @@
+# Expected Scanner Findings - Paleon Test Site 5
+# Source of truth for scanner validation
+# Last Updated: 2026-09-04
+
+site:
+  name: "Paleon Test Site 5 - MSP Multi-Client Estate"
+  domain: "paleon-lab-msp.com"
+  description: "MSP-managed multi-client estate demonstrating different security postures"
+  version: "5.0"
+
+hostnames:
+  - name: "msp.paleon-lab-msp.com"
+    client: "MSP Parent"
+    posture: "clean"
+    expected_findings: []
+
+  - name: "clienta.paleon-lab-msp.com"
+    client: "Client A"
+    posture: "clean"
+    expected_findings: []
+    false_positive_controls:
+      - type: "arn_reference"
+        location: "/docs/api-reference.js"
+        pattern: "arn:aws:iam::123456789012:role/ScannerTestRole"
+        description: "Fictional ARN reference - must NOT be flagged as real credential"
+        must_not_flag: true
+
+  - name: "clientb.paleon-lab-msp.com"
+    client: "Client B"
+    posture: "subtle"
+    expected_findings:
+      - finding_id: "clientb-tls-expiring"
+        category: "tls"
+        severity: "medium"
+        title: "TLS certificate expiring within 10 days"
+        description: "Self-signed certificate for clientb.paleon-lab-msp.com expires in approximately 10 days from deployment"
+        evidence:
+          certificate_expiration: "deployment_date + 10 days"
+          certificate_type: "self-signed"
+        must_flag: true
+
+      - finding_id: "clientb-missing-x-content-type-options"
+        category: "http_headers"
+        severity: "low"
+        title: "Missing X-Content-Type-Options header"
+        description: "HTTP response missing X-Content-Type-Options: nosniff header"
+        evidence:
+          missing_header: "X-Content-Type-Options"
+          expected_value: "nosniff"
+          present_headers:
+            - "Strict-Transport-Security"
+            - "Content-Security-Policy"
+            - "X-Frame-Options"
+            - "Referrer-Policy"
+            - "Permissions-Policy"
+        must_flag: true
+
+  - name: "clientc.paleon-lab-msp.com"
+    client: "Client C"
+    posture: "neglected"
+    expected_findings:
+      - finding_id: "clientc-tls-expired"
+        category: "tls"
+        severity: "high"
+        title: "TLS certificate expired"
+        description: "Self-signed certificate for clientc.paleon-lab-msp.com has expired (notAfter in the past)"
+        evidence:
+          certificate_expiration: "deployment_date - 1 day"
+          certificate_type: "self-signed"
+        must_flag: true
+
+      - finding_id: "clientc-missing-hsts"
+        category: "http_headers"
+        severity: "medium"
+        title: "Missing HSTS header"
+        description: "HTTPS response missing Strict-Transport-Security header"
+        evidence:
+          missing_header: "Strict-Transport-Security"
+        must_flag: true
+
+      - finding_id: "clientc-missing-csp"
+        category: "http_headers"
+        severity: "medium"
+        title: "Missing Content-Security-Policy header"
+        description: "HTTPS response missing Content-Security-Policy header"
+        evidence:
+          missing_header: "Content-Security-Policy"
+        must_flag: true
+
+      - finding_id: "clientc-dmarc-p-none"
+        category: "dns_email"
+        severity: "medium"
+        title: "DMARC policy set to p=none"
+        description: "DMARC record for clientc.paleon-lab-msp.com specifies p=none (monitor only)"
+        evidence:
+          dmarc_record: "v=DMARC1; p=none; rua=mailto:dmarc@clientc.example"
+          expected_policy: "p=reject"
+        must_flag: true
+
+      - finding_id: "clientc-exposed-git-head"
+        category: "exposed_files"
+        severity: "medium"
+        title: "Exposed .git/HEAD file"
+        description: "The .git/HEAD file is publicly accessible via HTTP/HTTPS"
+        evidence:
+          path: "/.git/HEAD"
+          expected_status: 200
+          expected_content: "ref: refs/heads/main"
+        must_flag: true
+
+      - finding_id: "clientc-exposed-git-config"
+        category: "exposed_files"
+        severity: "high"
+        title: "Exposed .git/config file"
+        description: "The .git/config file is publicly accessible via HTTP/HTTPS, revealing remote origin URL"
+        evidence:
+          path: "/.git/config"
+          expected_status: 200
+          expected_content_contains:
+            - "github.com"
+            - "meridian-consulting"
+            - "internal-docs.git"
+        must_flag: true
+
+      - finding_id: "clientc-open-port-5432"
+        category: "open_ports"
+        severity: "medium"
+        title: "Open database port 5432 (PostgreSQL)"
+        description: "TCP port 5432 is open and accepts connections, responding with a PostgreSQL banner"
+        evidence:
+          port: 5432
+          protocol: "tcp"
+          banner: "PostgreSQL 14.0 (dummy)"
+          service: "PostgreSQL (dummy listener)"
+        must_flag: true
+
+  - name: "clientd.paleon-lab-msp.com"
+    client: "Client D"
+    posture: "clean"
+    expected_findings: []
+
+# Summary of all expected findings
+summary:
+  total_expected_findings: 8
+  by_category:
+    tls: 2
+    http_headers: 3
+    dns_email: 1
+    exposed_files: 2
+    open_ports: 1
+  by_severity:
+    high: 2
+    medium: 4
+    low: 1
+    critical: 0
+  by_client:
+    "clientb.paleon-lab-msp.com": 2
+    "clientc.paleon-lab-msp.com": 6
+    "msp.paleon-lab-msp.com": 0
+    "clienta.paleon-lab-msp.com": 0
+    "clientd.paleon-lab-msp.com": 0
+
+# False-positive controls that MUST NOT be flagged
+false_positive_controls:
+  - control_id: "fp-arn-trap"
+    type: "credential_false_positive"
+    description: "Fictional ARN reference in clienta/docs/api-reference.js"
+    location: "clienta.paleon-lab-msp.com/docs/api-reference.js"
+    pattern: "arn:aws:iam::123456789012:role/ScannerTestRole"
+    must_not_flag: true
+    reason: "Clearly fictional account ID (123456789012) and fake key prefix (AKIAEXAMPLE)"
+
+  - control_id: "fp-clienta-tls"
+    type: "tls_false_positive"
+    description: "Clean TLS configuration for Client A"
+    hostnames: ["clienta.paleon-lab-msp.com"]
+    must_not_flag:
+      - "expired_certificate"
+      - "expiring_certificate"
+      - "weak_cipher"
+      - "self_signed_certificate"
+
+  - control_id: "fp-clientd-tls"
+    type: "tls_false_positive"
+    description: "Clean TLS configuration for Client D"
+    hostnames: ["clientd.paleon-lab-msp.com"]
+    must_not_flag:
+      - "expired_certificate"
+      - "expiring_certificate"
+      - "weak_cipher"
+      - "self_signed_certificate"
+
+  - control_id: "fp-clienta-headers"
+    type: "headers_false_positive"
+    description: "Complete security headers for Client A"
+    hostnames: ["clienta.paleon-lab-msp.com"]
+    must_not_flag:
+      - "missing_hsts"
+      - "missing_csp"
+      - "missing_x_frame_options"
+      - "missing_x_content_type_options"
+      - "missing_referrer_policy"
+      - "missing_permissions_policy"
+
+  - control_id: "fp-clientd-headers"
+    type: "headers_false_positive"
+    description: "Complete security headers for Client D"
+    hostnames: ["clientd.paleon-lab-msp.com"]
+    must_not_flag:
+      - "missing_hsts"
+      - "missing_csp"
+      - "missing_x_frame_options"
+      - "missing_x_content_type_options"
+      - "missing_referrer_policy"
+      - "missing_permissions_policy"
+
+  - control_id: "fp-clienta-dns"
+    type: "dns_email_false_positive"
+    description: "Strong DMARC/SPF for Client A"
+    hostnames: ["clienta.paleon-lab-msp.com"]
+    must_not_flag:
+      - "dmarc_p_none"
+      - "missing_spf"
+      - "weak_spf"
+
+  - control_id: "fp-clientd-dns"
+    type: "dns_email_false_positive"
+    description: "Strong DMARC/SPF for Client D"
+    hostnames: ["clientd.paleon-lab-msp.com"]
+    must_not_flag:
+      - "dmarc_p_none"
+      - "missing_spf"
+      - "weak_spf"
+
+  - control_id: "fp-clienta-files"
+    type: "exposed_files_false_positive"
+    description: "No exposed sensitive files for Client A"
+    hostnames: ["clienta.paleon-lab-msp.com"]
+    must_not_flag:
+      - "exposed_git_head"
+      - "exposed_git_config"
+      - "exposed_env"
+      - "exposed_backup"
+
+  - control_id: "fp-clientd-files"
+    type: "exposed_files_false_positive"
+    description: "No exposed sensitive files for Client D"
+    hostnames: ["clientd.paleon-lab-msp.com"]
+    must_not_flag:
+      - "exposed_git_head"
+      - "exposed_git_config"
+      - "exposed_env"
+      - "exposed_backup"
+
+  - control_id: "fp-msp-all"
+    type: "comprehensive_false_positive"
+    description: "MSP Parent - completely clean baseline"
+    hostnames: ["msp.paleon-lab-msp.com"]
+    must_not_flag:
+      - "tls_weakness"
+      - "missing_security_headers"
+      - "dmarc_weak"
+      - "exposed_files"
+      - "unnecessary_open_ports"
+
+# Port expectations
+port_expectations:
+  - port: 22
+    protocol: "tcp"
+    state: "open_filtered"
+    exposure: "admin_cidr_only"
+    description: "SSH - restricted to admin IP CIDR"
+    expected_on_all_hosts: true
+
+  - port: 80
+    protocol: "tcp"
+    state: "open"
+    exposure: "public"
+    description: "HTTP - redirects to HTTPS"
+    expected_on_all_hosts: true
+
+  - port: 443
+    protocol: "tcp"
+    state: "open"
+    exposure: "public"
+    description: "HTTPS - primary web traffic"
+    expected_on_all_hosts: true
+
+  - port: 5432
+    protocol: "tcp"
+    state: "open"
+    exposure: "public"
+    description: "PostgreSQL dummy listener - INTENTIONAL for Client C test"
+    expected_on_hosts:
+      - "clientc.paleon-lab-msp.com"
+    must_flag: true
+
+# Certificate expectations
+certificate_expectations:
+  - hostname: "msp.paleon-lab-msp.com"
+    type: "letsencrypt"
+    status: "valid_trusted"
+    must_not_flag: true
+
+  - hostname: "clienta.paleon-lab-msp.com"
+    type: "letsencrypt"
+    status: "valid_trusted"
+    must_not_flag: true
+
+  - hostname: "clientb.paleon-lab-msp.com"
+    type: "self_signed"
+    status: "expiring_soon"
+    days_until_expiry: 10
+    must_flag: true
+    finding_id: "clientb-tls-expiring"
+
+  - hostname: "clientc.paleon-lab-msp.com"
+    type: "self_signed"
+    status: "expired"
+    days_since_expiry: 1
+    must_flag: true
+    finding_id: "clientc-tls-expired"
+
+  - hostname: "clientd.paleon-lab-msp.com"
+    type: "letsencrypt"
+    status: "valid_trusted"
+    must_not_flag: true
+
+# Header expectations per hostname
+header_expectations:
+  - hostname: "msp.paleon-lab-msp.com"
+    expected:
+      - "Strict-Transport-Security: max-age=31536000; includeSubDomains; preload"
+      - "Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+      - "X-Frame-Options: DENY"
+      - "X-Content-Type-Options: nosniff"
+      - "Referrer-Policy: strict-origin-when-cross-origin"
+      - "Permissions-Policy: geolocation=(), microphone=(), camera=()"
+    must_not_miss: []
+
+  - hostname: "clienta.paleon-lab-msp.com"
+    expected:
+      - "Strict-Transport-Security: max-age=31536000; includeSubDomains; preload"
+      - "Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+      - "X-Frame-Options: DENY"
+      - "X-Content-Type-Options: nosniff"
+      - "Referrer-Policy: strict-origin-when-cross-origin"
+      - "Permissions-Policy: geolocation=(), microphone=(), camera=()"
+    must_not_miss: []
+
+  - hostname: "clientb.paleon-lab-msp.com"
+    expected:
+      - "Strict-Transport-Security: max-age=31536000; includeSubDomains; preload"
+      - "Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+      - "X-Frame-Options: DENY"
+      - "Referrer-Policy: strict-origin-when-cross-origin"
+      - "Permissions-Policy: geolocation=(), microphone=(), camera=()"
+    must_miss:
+      - "X-Content-Type-Options: nosniff"
+
+  - hostname: "clientc.paleon-lab-msp.com"
+    expected:
+      - "X-Frame-Options: DENY"
+      - "X-Content-Type-Options: nosniff"
+      - "Referrer-Policy: strict-origin-when-cross-origin"
+      - "Permissions-Policy: geolocation=(), microphone=(), camera=()"
+    must_miss:
+      - "Strict-Transport-Security"
+      - "Content-Security-Policy"
+
+  - hostname: "clientd.paleon-lab-msp.com"
+    expected:
+      - "Strict-Transport-Security: max-age=31536000; includeSubDomains; preload"
+      - "Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+      - "X-Frame-Options: DENY"
+      - "X-Content-Type-Options: nosniff"
+      - "Referrer-Policy: strict-origin-when-cross-origin"
+      - "Permissions-Policy: geolocation=(), microphone=(), camera=()"
+    must_not_miss: []
+
+# DNS/Email expectations
+dns_email_expectations:
+  - hostname: "msp.paleon-lab-msp.com"
+    spf: "v=spf1 ip4:<EIP> -all"
+    dmarc: "v=DMARC1; p=reject; rua=mailto:dmarc@msp.example; ruf=mailto:dmarc@msp.example; sp=reject; adkim=s; aspf=s"
+    must_not_flag: true
+
+  - hostname: "clienta.paleon-lab-msp.com"
+    spf: "v=spf1 ip4:<EIP> -all"
+    dmarc: "v=DMARC1; p=reject; rua=mailto:dmarc@clienta.example; ruf=mailto:dmarc@clienta.example; sp=reject; adkim=s; aspf=s"
+    must_not_flag: true
+
+  - hostname: "clientb.paleon-lab-msp.com"
+    spf: "v=spf1 ip4:<EIP> -all"
+    dmarc: "v=DMARC1; p=reject; rua=mailto:dmarc@clientb.example; ruf=mailto:dmarc@clientb.example; sp=reject; adkim=s; aspf=s"
+    must_not_flag: true
+
+  - hostname: "clientc.paleon-lab-msp.com"
+    spf: "v=spf1 ip4:<EIP> -all"
+    dmarc: "v=DMARC1; p=none; rua=mailto:dmarc@clientc.example"
+    must_flag: true
+    finding_id: "clientc-dmarc-p-none"
+
+  - hostname: "clientd.paleon-lab-msp.com"
+    spf: "v=spf1 ip4:<EIP> -all"
+    dmarc: "v=DMARC1; p=reject; rua=mailto:dmarc@clientd.example; ruf=mailto:dmarc@clientd.example; sp=reject; adkim=s; aspf=s"
+    must_not_flag: true
+
+# Validation rules for verify.sh
+validation_rules:
+  http_to_https_redirect:
+    enabled: true
+    description: "All HTTP requests must redirect to HTTPS (301/302)"
+    hostnames: all
+
+  hsts_preload:
+    enabled: true
+    description: "Clean clients must have HSTS with preload directive"
+    hostnames: ["msp.paleon-lab-msp.com", "clienta.paleon-lab-msp.com", "clientd.paleon-lab-msp.com"]
+
+  certificate_transparency:
+    enabled: true
+    description: "Let's Encrypt certs must appear in CT logs"
+    hostnames: ["msp.paleon-lab-msp.com", "clienta.paleon-lab-msp.com", "clientd.paleon-lab-msp.com"]
+
+  ocsp_stapling:
+    enabled: true
+    description: "Clean clients must have OCSP stapling enabled"
+    hostnames: ["msp.paleon-lab-msp.com", "clienta.paleon-lab-msp.com", "clientd.paleon-lab-msp.com"]

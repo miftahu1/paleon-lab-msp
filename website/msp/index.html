@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Paleon Managed Services - Professional IT infrastructure management, cloud support, and security monitoring for growing businesses.">
+    <title>Paleon Managed Services | Professional IT Infrastructure & Cloud Support</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif; line-height: 1.6; color: #1a1a2e; background: #ffffff; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+        header { background: #ffffff; border-bottom: 1px solid #e8e8ec; position: sticky; top: 0; z-index: 100; }
+        nav { display: flex; justify-content: space-between; align-items: center; height: 72px; }
+        .logo { font-weight: 700; font-size: 1.25rem; color: #1a1a2e; text-decoration: none; }
+        .logo span { color: #2563eb; }
+        .nav-links { display: flex; gap: 32px; list-style: none; }
+        .nav-links a { color: #475569; text-decoration: none; font-weight: 500; transition: color 0.2s; }
+        .nav-links a:hover { color: #2563eb; }
+        .btn { display: inline-flex; align-items: center; gap: 8px; padding: 12px 24px; border-radius: 8px; font-weight: 600; font-size: 0.875rem; text-decoration: none; transition: all 0.2s; border: none; cursor: pointer; }
+        .btn-primary { background: #2563eb; color: #ffffff; }
+        .btn-primary:hover { background: #1d4ed8; }
+        .btn-secondary { background: #f1f5f9; color: #1a1a2e; border: 1px solid #e2e8f0; }
+        .btn-secondary:hover { background: #e2e8f0; }
+        .hero { padding: 100px 0; background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%); }
+        .hero-content { display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: center; }
+        .hero h1 { font-size: 3.5rem; font-weight: 800; line-height: 1.1; color: #1a1a2e; margin-bottom: 24px; }
+        .hero h1 span { color: #2563eb; }
+        .hero p { font-size: 1.25rem; color: #475569; margin-bottom: 32px; max-width: 500px; }
+        .hero-buttons { display: flex; gap: 16px; }
+        .hero-image { background: #f1f5f9; border-radius: 16px; aspect-ratio: 4/3; display: flex; align-items: center; justify-content: center; color: #94a3b8; font-size: 1.125rem; }
+        .section { padding: 100px 0; }
+        .section-header { text-align: center; margin-bottom: 64px; }
+        .section-header h2 { font-size: 2.5rem; font-weight: 700; color: #1a1a2e; margin-bottom: 16px; }
+        .section-header p { font-size: 1.125rem; color: #64748b; max-width: 600px; margin: 0 auto; }
+        .services-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 32px; }
+        .service-card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 32px; transition: all 0.2s; }
+        .service-card:hover { border-color: #2563eb; box-shadow: 0 12px 40px rgba(37, 99, 235, 0.1); transform: translateY(-4px); }
+        .service-icon { width: 48px; height: 48px; background: #eff6ff; border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-bottom: 20px; color: #2563eb; }
+        .service-card h3 { font-size: 1.25rem; font-weight: 600; color: #1a1a2e; margin-bottom: 12px; }
+        .service-card p { color: #64748b; line-height: 1.7; }
+        .clients { background: #f8fafc; }
+        .clients-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 24px; }
+        .client-card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px; text-align: center; }
+        .client-card h3 { font-size: 1.125rem; font-weight: 600; color: #1a1a2e; margin-bottom: 8px; }
+        .client-card p { color: #64748b; font-size: 0.875rem; }
+        .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 32px; text-align: center; }
+        .stat { padding: 24px; }
+        .stat-value { font-size: 3rem; font-weight: 800; color: #2563eb; line-height: 1; margin-bottom: 8px; }
+        .stat-label { color: #64748b; font-weight: 500; }
+        .cta { background: #1a1a2e; color: #ffffff; text-align: center; }
+        .cta h2 { font-size: 2.5rem; font-weight: 700; margin-bottom: 16px; }
+        .cta p { font-size: 1.125rem; color: #94a3b8; margin-bottom: 32px; max-width: 600px; margin-left: auto; margin-right: auto; }
+        footer { background: #0f172a; color: #ffffff; padding: 64px 0 32px; }
+        .footer-grid { display: grid; grid-template-columns: 2fr repeat(3, 1fr); gap: 48px; margin-bottom: 48px; }
+        .footer-brand p { color: #94a3b8; margin-top: 16px; max-width: 300px; }
+        .footer-column h4 { font-size: 0.875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #94a3b8; margin-bottom: 20px; }
+        .footer-column ul { list-style: none; }
+        .footer-column li { margin-bottom: 12px; }
+        .footer-column a { color: #cbd5e1; text-decoration: none; transition: color 0.2s; }
+        .footer-column a:hover { color: #ffffff; }
+        .footer-bottom { border-top: 1px solid #1e293b; padding-top: 32px; display: flex; justify-content: space-between; align-items: center; color: #64748b; font-size: 0.875rem; }
+        @media (max-width: 768px) {
+            .hero-content { grid-template-columns: 1fr; text-align: center; }
+            .hero h1 { font-size: 2.5rem; }
+            .hero-buttons { justify-content: center; }
+            .nav-links { display: none; }
+            .footer-grid { grid-template-columns: 1fr; gap: 32px; }
+            .footer-bottom { flex-direction: column; gap: 16px; text-align: center; }
+            .stats { grid-template-columns: repeat(2, 1fr); }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <nav class="container">
+            <a href="/" class="logo">Paleon<span>MSP</span></a>
+            <ul class="nav-links">
+                <li><a href="#services">Services</a></li>
+                <li><a href="#clients">Clients</a></li>
+                <li><a href="#about">About</a></li>
+                <li><a href="#contact">Contact</a></li>
+            </ul>
+            <a href="#contact" class="btn btn-primary">Get Started</a>
+        </nav>
+    </header>
+
+    <main>
+        <section class="hero">
+            <div class="container">
+                <div class="hero-content">
+                    <div>
+                        <h1>Infrastructure That <span>Scales With You</span></h1>
+                        <p>Paleon Managed Services delivers enterprise-grade IT infrastructure, cloud management, and security monitoring—so you can focus on building your business, not managing servers.</p>
+                        <div class="hero-buttons">
+                            <a href="#contact" class="btn btn-primary">Start a Conversation</a>
+                            <a href="#services" class="btn btn-secondary">Explore Services</a>
+                        </div>
+                    </div>
+                    <div class="hero-image">
+                        <svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <rect x="20" y="60" width="160" height="100" rx="8" stroke="currentColor" stroke-width="2"/>
+                            <rect x="40" y="80" width="40" height="40" rx="4" fill="currentColor" opacity="0.3"/>
+                            <rect x="100" y="80" width="40" height="40" rx="4" fill="currentColor" opacity="0.3"/>
+                            <rect x="40" y="140" width="40" height="10" rx="2" fill="currentColor" opacity="0.5"/>
+                            <rect x="100" y="140" width="40" height="10" rx="2" fill="currentColor" opacity="0.5"/>
+                            <circle cx="160" cy="40" r="12" stroke="currentColor" stroke-width="2"/>
+                            <path d="M160 32V28M160 48V52M152 40H148M168 40H172" stroke="currentColor" stroke-width="2"/>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="stats">
+            <div class="container">
+                <div class="stat">
+                    <div class="stat-value">247+</div>
+                    <div class="stat-label">Managed Instances</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value">99.99%</div>
+                    <div class="stat-label">Uptime SLA</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value">12min</div>
+                    <div class="stat-label">Avg Response Time</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value">47</div>
+                    <div class="stat-label">Active Clients</div>
+                </div>
+            </div>
+        </section>
+
+        <section id="services" class="section">
+            <div class="container">
+                <div class="section-header">
+                    <h2>Managed Services</h2>
+                    <p>Comprehensive infrastructure management tailored to your growth stage.</p>
+                </div>
+                <div class="services-grid">
+                    <article class="service-card">
+                        <div class="service-icon">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+                        </div>
+                        <h3>Infrastructure Management</h3>
+                        <p>Proactive monitoring, patching, and optimization of your cloud and on-premise infrastructure. We handle capacity planning, automated backups, and disaster recovery testing.</p>
+                    </article>
+                    <article class="service-card">
+                        <div class="service-icon">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
+                        </div>
+                        <h3>Cloud Support & Migration</h3>
+                        <p>AWS, Azure, and GCP expertise for migrations, cost optimization, and architecture review. We implement IaC, CI/CD pipelines, and cloud-native security controls.</p>
+                    </article>
+                    <article class="service-card">
+                        <div class="service-icon">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                        </div>
+                        <h3>Security & Compliance</h3>
+                        <p>Continuous vulnerability scanning, intrusion detection, and compliance reporting (SOC 2, ISO 27001, GDPR). We manage WAF rules, certificate lifecycle, and access controls.</p>
+                    </article>
+                    <article class="service-card">
+                        <div class="service-icon">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                        </div>
+                        <h3>24/7 Monitoring & Response</h3>
+                        <p>Round-the-clock NOC with tiered escalation. Real-time dashboards, custom alerting, and incident response with documented runbooks for every critical service.</p>
+                    </article>
+                    <article class="service-card">
+                        <div class="service-icon">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                        </div>
+                        <h3>Identity & Access Management</h3>
+                        <p>Centralized identity provider integration, RBAC design, privileged access management, and automated provisioning/deprovisioning workflows.</p>
+                    </article>
+                    <article class="service-card">
+                        <div class="service-icon">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+                        </div>
+                        <h3>Client Success & Reporting</h3>
+                        <p>Dedicated technical account managers, monthly business reviews, capacity forecasting, and transparent billing with detailed usage analytics.</p>
+                    </article>
+                </div>
+            </div>
+        </section>
+
+        <section id="clients" class="section clients">
+            <div class="container">
+                <div class="section-header">
+                    <h2>Our Clients</h2>
+                    <p>Trusted by growing companies across technology, healthcare, and professional services.</p>
+                </div>
+                <div class="clients-grid">
+                    <article class="client-card">
+                        <h3>Client A</h3>
+                        <p>SaaS Platform · 50 employees</p>
+                    </article>
+                    <article class="client-card">
+                        <h3>Client B</h3>
+                        <p>E-commerce · 35 employees</p>
+                    </article>
+                    <article class="client-card">
+                        <h3>Client C</h3>
+                        <p>Professional Services · 28 employees</p>
+                    </article>
+                    <article class="client-card">
+                        <h3>Client D</h3>
+                        <p>Health Tech · 42 employees</p>
+                    </article>
+                </div>
+            </div>
+        </section>
+
+        <section id="contact" class="section cta">
+            <div class="container">
+                <h2>Ready to Modernize Your Infrastructure?</h2>
+                <p>Schedule a no-obligation architecture review. We'll assess your current setup and provide a prioritized roadmap.</p>
+                <a href="mailto:hello@paleon.example" class="btn btn-primary">Contact Sales</a>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container">
+            <div class="footer-grid">
+                <div class="footer-brand">
+                    <a href="/" class="logo" style="color: #fff;">Paleon<span>MSP</span></a>
+                    <p>Professional managed IT services for growing businesses. Infrastructure, cloud, security, and compliance—handled.</p>
+                </div>
+                <div class="footer-column">
+                    <h4>Services</h4>
+                    <ul>
+                        <li><a href="#services">Infrastructure Management</a></li>
+                        <li><a href="#services">Cloud Support</a></li>
+                        <li><a href="#services">Security & Compliance</a></li>
+                        <li><a href="#services">24/7 Monitoring</a></li>
+                    </ul>
+                </div>
+                <div class="footer-column">
+                    <h4>Company</h4>
+                    <ul>
+                        <li><a href="#about">About Us</a></li>
+                        <li><a href="#clients">Clients</a></li>
+                        <li><a href="#">Careers</a></li>
+                        <li><a href="#">Blog</a></li>
+                    </ul>
+                </div>
+                <div class="footer-column">
+                    <h4>Legal</h4>
+                    <ul>
+                        <li><a href="#">Privacy Policy</a></li>
+                        <li><a href="#">Terms of Service</a></li>
+                        <li><a href="#">Security</a></li>
+                        <li><a href="#">Cookies</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <span>&copy; 2025 Paleon Managed Services. All rights reserved.</span>
+                <span>Fictional company for testing purposes only.</span>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>

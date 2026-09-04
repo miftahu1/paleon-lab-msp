@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Bloom & Co - Artisan e-commerce platform for handcrafted goods. Discover unique products from independent makers.">
+    <title>Bloom & Co | Handcrafted Marketplace</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Georgia', 'Times New Roman', serif; line-height: 1.7; color: #2d2d2d; background: #faf9f7; }
+        .container { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+        header { background: #ffffff; border-bottom: 1px solid #e8e4df; position: sticky; top: 0; z-index: 100; }
+        nav { display: flex; justify-content: space-between; align-items: center; height: 80px; }
+        .logo { font-family: 'Georgia', serif; font-weight: 400; font-size: 1.5rem; color: #2d2d2d; text-decoration: none; letter-spacing: 0.02em; }
+        .logo span { color: #8b6f47; }
+        .nav-links { display: flex; gap: 40px; list-style: none; }
+        .nav-links a { color: #5a5a5a; text-decoration: none; font-weight: 400; font-size: 0.9375rem; transition: color 0.2s; letter-spacing: 0.01em; }
+        .nav-links a:hover { color: #8b6f47; }
+        .btn { display: inline-flex; align-items: center; gap: 8px; padding: 14px 28px; border-radius: 4px; font-weight: 500; font-size: 0.9375rem; text-decoration: none; transition: all 0.2s; border: 1px solid transparent; cursor: pointer; font-family: inherit; }
+        .btn-primary { background: #8b6f47; color: #ffffff; border-color: #8b6f47; }
+        .btn-primary:hover { background: #735a3a; border-color: #735a3a; }
+        .btn-secondary { background: transparent; color: #8b6f47; border-color: #8b6f47; }
+        .btn-secondary:hover { background: #8b6f47; color: #ffffff; }
+        .hero { padding: 120px 0 100px; background: #faf9f7; }
+        .hero-content { max-width: 700px; }
+        .hero h1 { font-family: 'Georgia', serif; font-weight: 400; font-size: 3.75rem; line-height: 1.15; color: #2d2d2d; margin-bottom: 24px; letter-spacing: -0.02em; }
+        .hero h1 span { color: #8b6f47; }
+        .hero p { font-size: 1.25rem; color: #5a5a5a; margin-bottom: 40px; max-width: 550px; }
+        .hero-buttons { display: flex; gap: 16px; }
+        .section { padding: 100px 0; }
+        .section-header { text-align: center; margin-bottom: 64px; }
+        .section-header h2 { font-family: 'Georgia', serif; font-weight: 400; font-size: 2.75rem; color: #2d2d2d; margin-bottom: 16px; letter-spacing: -0.01em; }
+        .section-header p { font-size: 1.125rem; color: #5a5a5a; max-width: 600px; margin: 0 auto; }
+        .products-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 32px; }
+        .product-card { background: #ffffff; border: 1px solid #e8e4df; border-radius: 4px; overflow: hidden; transition: all 0.3s; }
+        .product-card:hover { box-shadow: 0 20px 40px rgba(0,0,0,0.08); transform: translateY(-4px); }
+        .product-image { aspect-ratio: 1/1; background: #f5f2ef; display: flex; align-items: center; justify-content: center; color: #c4b9ad; font-size: 3rem; }
+        .product-info { padding: 24px; }
+        .product-category { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; color: #8b6f47; font-weight: 500; margin-bottom: 8px; }
+        .product-card h3 { font-family: 'Georgia', serif; font-weight: 400; font-size: 1.125rem; color: #2d2d2d; margin-bottom: 8px; }
+        .product-price { font-size: 1.125rem; font-weight: 600; color: #2d2d2d; margin-bottom: 16px; }
+        .product-card .btn { width: 100%; justify-content: center; }
+        .makers { background: #ffffff; }
+        .makers-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 32px; }
+        .maker-card { text-align: center; }
+        .maker-avatar { width: 120px; height: 120px; border-radius: 50%; background: #f5f2ef; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center; color: #c4b9ad; font-size: 2.5rem; }
+        .maker-card h3 { font-family: 'Georgia', serif; font-weight: 400; font-size: 1.25rem; color: #2d2d2d; margin-bottom: 4px; }
+        .maker-card p { color: #8b6f47; font-size: 0.9375rem; margin-bottom: 12px; }
+        .maker-card .bio { color: #5a5a5a; font-size: 0.875rem; line-height: 1.6; }
+        .newsletter { background: #2d2d2d; color: #ffffff; text-align: center; }
+        .newsletter h2 { font-family: 'Georgia', serif; font-weight: 400; font-size: 2.5rem; margin-bottom: 16px; }
+        .newsletter p { color: #a8a8a8; margin-bottom: 32px; max-width: 500px; margin-left: auto; margin-right: auto; }
+        .newsletter-form { display: flex; gap: 12px; max-width: 400px; margin: 0 auto; }
+        .newsletter-form input { flex: 1; padding: 14px 20px; border: 1px solid #4a4a4a; border-radius: 4px; background: #1a1a1a; color: #ffffff; font-family: inherit; font-size: 0.9375rem; }
+        .newsletter-form input::placeholder { color: #6a6a6a; }
+        .newsletter-form .btn { white-space: nowrap; }
+        footer { background: #1a1a1a; color: #ffffff; padding: 64px 0 32px; }
+        .footer-grid { display: grid; grid-template-columns: 2fr repeat(3, 1fr); gap: 48px; margin-bottom: 48px; }
+        .footer-brand p { color: #888; margin-top: 16px; max-width: 300px; line-height: 1.7; }
+        .footer-column h4 { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: #888; margin-bottom: 20px; }
+        .footer-column ul { list-style: none; }
+        .footer-column li { margin-bottom: 12px; }
+        .footer-column a { color: #c4b9ad; text-decoration: none; transition: color 0.2s; font-size: 0.9375rem; }
+        .footer-column a:hover { color: #ffffff; }
+        .footer-bottom { border-top: 1px solid #333; padding-top: 32px; display: flex; justify-content: space-between; align-items: center; color: #6a6a6a; font-size: 0.875rem; }
+        @media (max-width: 768px) {
+            .hero h1 { font-size: 2.75rem; }
+            .hero-buttons { flex-direction: column; }
+            .nav-links { display: none; }
+            .footer-grid { grid-template-columns: 1fr; gap: 32px; }
+            .footer-bottom { flex-direction: column; gap: 16px; text-align: center; }
+            .newsletter-form { flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <nav class="container">
+            <a href="/" class="logo">Bloom<span>& Co</span></a>
+            <ul class="nav-links">
+                <li><a href="#shop">Shop</a></li>
+                <li><a href="#makers">Makers</a></li>
+                <li><a href="#story">Our Story</a></li>
+                <li><a href="#contact">Contact</a></li>
+            </ul>
+            <a href="#contact" class="btn btn-secondary">Wholesale Inquiries</a>
+        </nav>
+    </header>
+
+    <main>
+        <section class="hero">
+            <div class="container">
+                <div class="hero-content">
+                    <h1>Curated Goods, <span>Crafted with Intention</span></h1>
+                    <p>Discover handcrafted homewares, ceramics, textiles, and accessories from independent makers across the country. Each piece tells a story.</p>
+                    <div class="hero-buttons">
+                        <a href="#shop" class="btn btn-primary">Shop Collection</a>
+                        <a href="#makers" class="btn btn-secondary">Meet the Makers</a>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="shop" class="section">
+            <div class="container">
+                <div class="section-header">
+                    <h2>New Arrivals</h2>
+                    <p>Fresh from the studio—limited quantities, made in small batches.</p>
+                </div>
+                <div class="products-grid">
+                    <article class="product-card">
+                        <div class="product-image">🏺</div>
+                        <div class="product-info">
+                            <span class="product-category">Ceramics</span>
+                            <h3>Hand-thrown Ceramic Vase</h3>
+                            <div class="product-price">$84.00</div>
+                            <a href="#" class="btn btn-primary">Add to Cart</a>
+                        </div>
+                    </article>
+                    <article class="product-card">
+                        <div class="product-image">🧶</div>
+                        <div class="product-info">
+                            <span class="product-category">Textiles</span>
+                            <h3>Organic Cotton Throw Blanket</h3>
+                            <div class="product-price">$156.00</div>
+                            <a href="#" class="btn btn-primary">Add to Cart</a>
+                        </div>
+                    </article>
+                    <article class="product-card">
+                        <div class="product-image">🕯️</div>
+                        <div class="product-info">
+                            <span class="product-category">Home Fragrance</span>
+                            <h3>Soy Wax Candle Set (3)</h3>
+                            <div class="product-price">$68.00</div>
+                            <a href="#" class="btn btn-primary">Add to Cart</a>
+                        </div>
+                    </article>
+                    <article class="product-card">
+                        <div class="product-image">🍵</div>
+                        <div class="product-info">
+                            <span class="product-category">Kitchenware</span>
+                            <h3>Walnut Cutting Board</h3>
+                            <div class="product-price">$124.00</div>
+                            <a href="#" class="btn btn-primary">Add to Cart</a>
+                        </div>
+                    </article>
+                </div>
+                <div style="text-align: center; margin-top: 48px;">
+                    <a href="#shop" class="btn btn-secondary">View All Products</a>
+                </div>
+            </div>
+        </section>
+
+        <section id="makers" class="section makers">
+            <div class="container">
+                <div class="section-header">
+                    <h2>Meet the Makers</h2>
+                    <p>Behind every piece is a person dedicated to their craft.</p>
+                </div>
+                <div class="makers-grid">
+                    <article class="maker-card">
+                        <div class="maker-avatar">👩‍🎨</div>
+                        <h3>Elena Vasquez</h3>
+                        <p>Ceramicist · Santa Fe, NM</p>
+                        <p class="bio">Third-generation potter creating functional art inspired by the high desert landscape.</p>
+                    </article>
+                    <article class="maker-card">
+                        <div class="maker-avatar">👨‍🎨</div>
+                        <h3>James Okafor</h3>
+                        <p>Woodworker · Asheville, NC</p>
+                        <p class="bio">Sustainably sourced hardwoods shaped into heirloom-quality kitchen tools.</p>
+                    </article>
+                    <article class="maker-card">
+                        <div class="maker-avatar">👩‍🎨</div>
+                        <h3>Mei Chen</h3>
+                        <p>Textile Artist · Portland, OR</p>
+                        <p class="bio">Natural dyes and traditional weaving techniques meet contemporary design.</p>
+                    </article>
+                    <article class="maker-card">
+                        <div class="maker-avatar">👨‍🎨</div>
+                        <h3>David Morrison</h3>
+                        <p>Candlemaker · Burlington, VT</p>
+                        <p class="bio">Small-batch soy candles with complex, nature-inspired fragrance profiles.</p>
+                    </article>
+                </div>
+            </div>
+        </section>
+
+        <section id="story" class="section">
+            <div class="container">
+                <div class="section-header">
+                    <h2>Our Story</h2>
+                    <p>Why we started Bloom & Co.</p>
+                </div>
+                <div style="max-width: 800px; margin: 0 auto; text-align: center; color: #5a5a5a; font-size: 1.125rem; line-height: 1.8;">
+                    <p>In 2019, we noticed something: incredible makers were creating beautiful things, but had no way to reach customers beyond local markets. Meanwhile, people were craving authenticity—real things made by real hands.</p>
+                    <p style="margin-top: 24px;">Bloom & Co was born from that gap. We curate, we tell stories, and we handle the logistics so makers can focus on making.</p>
+                    <p style="margin-top: 24px;">Today, we work with over 80 independent artisans across 23 states. Every item in our collection is made in batches of 50 or fewer.</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="contact" class="section newsletter">
+            <div class="container">
+                <h2>Join Our Community</h2>
+                <p>Early access to new collections, maker stories, and exclusive offers.</p>
+                <form class="newsletter-form">
+                    <input type="email" placeholder="Enter your email" required>
+                    <button type="submit" class="btn btn-primary">Subscribe</button>
+                </form>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container">
+            <div class="footer-grid">
+                <div class="footer-brand">
+                    <a href="/" class="logo" style="color: #fff;">Bloom<span>& Co</span></a>
+                    <p>Curated handcrafted goods from independent makers. Quality over quantity, always.</p>
+                </div>
+                <div class="footer-column">
+                    <h4>Shop</h4>
+                    <ul>
+                        <li><a href="#shop">All Products</a></li>
+                        <li><a href="#">Ceramics</a></li>
+                        <li><a href="#">Textiles</a></li>
+                        <li><a href="#">Home Fragrance</a></li>
+                    </ul>
+                </div>
+                <div class="footer-column">
+                    <h4>Discover</h4>
+                    <ul>
+                        <li><a href="#makers">Meet the Makers</a></li>
+                        <li><a href="#story">Our Story</a></li>
+                        <li><a href="#">Journal</a></li>
+                        <li><a href="#">Gift Guide</a></li>
+                    </ul>
+                </div>
+                <div class="footer-column">
+                    <h4>Support</h4>
+                    <ul>
+                        <li><a href="#">Shipping Info</a></li>
+                        <li><a href="#">Returns</a></li>
+                        <li><a href="#">FAQ</a></li>
+                        <li><a href="#contact">Contact Us</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <span>&copy; 2025 Bloom & Co. All rights reserved.</span>
+                <span>Fictional company for testing purposes only.</span>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>
