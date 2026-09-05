@@ -161,7 +161,7 @@ msp/
 | `domain_name` | Base domain | `paleon-lab-msp.com` |
 | `ssh_key_name` | Existing EC2 key pair name | `my-keypair` |
 | `admin_ip_cidr` | Admin IP for SSH | `203.0.113.0/24` |
-| `repo_url` | Git repository URL | `https://github.com/user/msp.git` |
+| `repo_url` | Git repository URL | `https://github.com/miftahu1/paleon-lab-msp.git` |
 
 ---
 
@@ -181,7 +181,7 @@ terraform plan \
   -var="domain_name=paleon-lab-msp.com" \
   -var="ssh_key_name=my-key" \
   -var="admin_ip_cidr=203.0.113.0/24" \
-  -var="repo_url=https://github.com/user/msp.git"
+  -var="repo_url=https://github.com/miftahu1/paleon-lab-msp.git"
 
 # 4. Deploy
 terraform apply \
@@ -189,7 +189,7 @@ terraform apply \
   -var="domain_name=paleon-lab-msp.com" \
   -var="ssh_key_name=my-key" \
   -var="admin_ip_cidr=203.0.113.0/24" \
-  -var="repo_url=https://github.com/user/msp.git"
+  -var="repo_url=https://github.com/miftahu1/paleon-lab-msp.git"
 
 # 5. Post-deployment verification
 cd ..

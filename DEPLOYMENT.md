@@ -87,7 +87,7 @@ aws_region      = "us-east-1"
 domain_name     = "paleon-lab-msp.com"
 ssh_key_name    = "my-existing-keypair"
 admin_ip_cidr   = "203.0.113.0/24"  # Your IP /32 or CIDR
-repo_url        = "https://github.com/your-org/msp.git"
+repo_url        = "https://github.com/miftahu1/paleon-lab-msp.git"
 ```
 
 Or pass via command line:
@@ -97,7 +97,7 @@ terraform apply \
   -var="domain_name=paleon-lab-msp.com" \
   -var="ssh_key_name=my-key" \
   -var="admin_ip_cidr=203.0.113.5/32" \
-  -var="repo_url=https://github.com/user/msp.git"
+  -var="repo_url=https://github.com/miftahu1/paleon-lab-msp.git"
 ```
 
 ---
@@ -126,7 +126,7 @@ terraform plan \
   -var="domain_name=paleon-lab-msp.com" \
   -var="ssh_key_name=my-key" \
   -var="admin_ip_cidr=203.0.113.5/32" \
-  -var="repo_url=https://github.com/user/msp.git"
+  -var="repo_url=https://github.com/miftahu1/paleon-lab-msp.git"
 ```
 
 Review the plan carefully. Verify:
@@ -144,7 +144,7 @@ terraform apply \
   -var="domain_name=paleon-lab-msp.com" \
   -var="ssh_key_name=my-key" \
   -var="admin_ip_cidr=203.0.113.5/32" \
-  -var="repo_url=https://github.com/user/msp.git"
+  -var="repo_url=https://github.com/miftahu1/paleon-lab-msp.git"
 ```
 
 Type `yes` to confirm.
@@ -343,7 +343,7 @@ terraform destroy \
   -var="domain_name=paleon-lab-msp.com" \
   -var="ssh_key_name=my-key" \
   -var="admin_ip_cidr=203.0.113.5/32" \
-  -var="repo_url=https://github.com/user/msp.git"
+  -var="repo_url=https://github.com/miftahu1/paleon-lab-msp.git"
 ```
 
 **Note**: This destroys the EC2 instances, EIPs, Route53 zone, and security groups. S3 state bucket is NOT destroyed (manual cleanup required).
