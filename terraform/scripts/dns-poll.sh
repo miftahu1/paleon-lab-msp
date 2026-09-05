@@ -19,7 +19,9 @@ if [ ! -f "${EXPECTED_IP_FILE}" ]; then
   exit 1
 fi
 
-readarray -t EXPECTED_IPS < <(tr -d '[:space:]' < "${EXPECTED_IP_FILE}")
+mapfile -t EXPECTED_IPS < <(
+  sed '/^[[:space:]]*$/d; s/^[[:space:]]*//; s/[[:space:]]*$//' "${EXPECTED_IP_FILE}"
+)
 if [ "${#EXPECTED_IPS[@]}" -ne 2 ]; then
   echo "ERROR: Expected IP file must contain exactly two values: clean and clientc"
   exit 1
@@ -27,6 +29,16 @@ fi
 
 EXPECTED_CLEAN_IP="${EXPECTED_IPS[0]}"
 EXPECTED_CLIENTC_IP="${EXPECTED_IPS[1]}"
+
+if ! [[ "${EXPECTED_CLEAN_IP}" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  echo "ERROR: Expected clean IP is invalid: ${EXPECTED_CLEAN_IP}"
+  exit 1
+fi
+
+if ! [[ "${EXPECTED_CLIENTC_IP}" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  echo "ERROR: Expected Client C IP is invalid: ${EXPECTED_CLIENTC_IP}"
+  exit 1
+fi
 
 if [ ! -f "${DOMAIN_NAME_FILE}" ]; then
   echo "ERROR: Domain name file not found: ${DOMAIN_NAME_FILE}"

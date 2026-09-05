@@ -373,12 +373,16 @@ else
   log_fail "Dummy listener script missing required configuration"
 fi
 
-# Check DNS polling script has expected IP verification
-if grep -q "EXPECTED_IP" terraform/scripts/dns-poll.sh && \
-   grep -q "MAX_ATTEMPTS=30" terraform/scripts/dns-poll.sh; then
-  log_pass "DNS polling script has expected IP verification and bounded attempts"
+# Check DNS polling script preserves the two-line expected_ip format and validates IPv4 entries
+if grep -Fq 'mapfile -t EXPECTED_IPS < <(' terraform/scripts/dns-poll.sh && \
+   grep -Fq 'EXPECTED_CLEAN_IP="${EXPECTED_IPS[0]}"' terraform/scripts/dns-poll.sh && \
+   grep -Fq 'EXPECTED_CLIENTC_IP="${EXPECTED_IPS[1]}"' terraform/scripts/dns-poll.sh && \
+   grep -Fq 'Expected clean IP is invalid:' terraform/scripts/dns-poll.sh && \
+   grep -Fq 'Expected Client C IP is invalid:' terraform/scripts/dns-poll.sh && \
+   grep -Fq 'MAX_ATTEMPTS=30' terraform/scripts/dns-poll.sh; then
+  log_pass "DNS polling script preserves the two-line expected_ip format and validates IPv4 entries"
 else
-  log_fail "DNS polling script missing required configuration"
+  log_fail "DNS polling script missing required expected_ip parsing and validation"
 fi
 
 # Check cert-setup.sh has Let's Encrypt for clean clients

@@ -51,14 +51,31 @@ verbose() {
   fi
 }
 
-# Curl wrapper with consistent options
+# Curl wrapper with consistent options. Only intentionally invalid TLS hosts
+# (clientb/clientc) use curl -k; clean hosts keep normal validation.
+curl_with_tls_mode() {
+  local url="$1"
+  shift
+
+  local host="${url#https://}"
+  host="${host%%/*}"
+  local curl_cmd=(curl)
+
+  if [[ "$host" == "clientb.${DOMAIN}" || "$host" == "clientc.${DOMAIN}" ]]; then
+    curl_cmd+=(-k)
+  fi
+
+  curl_cmd+=("$@" "$url")
+  "${curl_cmd[@]}"
+}
+
 do_curl() {
   local url="$1"
   local expected_code="${2:-200}"
   local flags="${3:--sf}"
 
   verbose "GET $url"
-  response=$(curl $flags --max-time "$TIMEOUT" -w "\n%{http_code}" "$url" 2>/dev/null || echo -e "\n000")
+  response=$(curl_with_tls_mode "$url" $flags --max-time "$TIMEOUT" -w "\n%{http_code}" 2>/dev/null || echo -e "\n000")
   http_code=$(echo "$response" | tail -1)
   body=$(echo "$response" | head -n -1)
 
@@ -71,14 +88,15 @@ do_curl() {
   fi
 }
 
-# Check if a header exists in response
+# Check if a header exists in response. For intentionally invalid TLS hosts,
+# use curl -k to inspect the real response without certificate trust failure.
 check_header() {
   local url="$1"
   local header_name="$2"
   local expected_value="${3:-}"
 
   verbose "HEAD $url (checking $header_name)"
-  response=$(curl -sI --max-time "$TIMEOUT" "$url" 2>/dev/null || echo "")
+  response=$(curl_with_tls_mode "$url" -sI --max-time "$TIMEOUT" 2>/dev/null || echo "")
 
   if [[ -z "$response" ]]; then
     return 1
@@ -345,8 +363,7 @@ for fqdn in "${FQDNS[@]}"; do
     continue
   fi
 
-  cert_analysis=$(analyze_certificate "$cert_pem")
-  if [[ $? -ne 0 ]]; then
+  if ! cert_analysis=$(analyze_certificate "$cert_pem"); then
     log_fail "$fqdn - Certificate could not be parsed"
     continue
   fi
