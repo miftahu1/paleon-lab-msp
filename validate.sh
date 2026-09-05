@@ -593,6 +593,64 @@ else
   log_fail "verify.sh target IP variables are missing"
 fi
 
+# --- 14. reset.sh Regression Test (static analysis) ---
+log_info "=== Validating reset.sh Safety (Regression Test) ==="
+
+# Check reset.sh does NOT delete tracked certs/ directory
+if grep -q 'clean_path "certs"' reset.sh; then
+  log_fail "reset.sh contains dangerous 'clean_path \"certs\"' - deletes tracked certs/ directory"
+else
+  log_pass "reset.sh does not delete tracked certs/ directory"
+fi
+
+# Check reset.sh does NOT delete .terraform.lock.hcl
+if grep -q 'clean_path "terraform/.terraform.lock.hcl"' reset.sh; then
+  log_fail "reset.sh contains dangerous 'clean_path \"terraform/.terraform.lock.hcl\"' - deletes tracked lock file"
+else
+  log_pass "reset.sh does not delete .terraform.lock.hcl"
+fi
+
+# Check reset.sh does NOT use unsafe glob strings with rm -rf
+if grep -q 'clean_path "terraform/\*.tfplan"' reset.sh || \
+   grep -q 'clean_path "\*.log"' reset.sh || \
+   grep -q 'clean_path "\*.tmp"' reset.sh || \
+   grep -q 'clean_path "\*.bak"' reset.sh || \
+   grep -q 'clean_path "\*~"' reset.sh; then
+  log_fail "reset.sh uses unsafe literal glob strings with clean_path/rm -rf"
+else
+  log_pass "reset.sh does not use unsafe literal glob strings"
+fi
+
+# Check reset.sh uses safe find-based glob cleanup (clean_glob function)
+if grep -q 'clean_glob' reset.sh; then
+  log_pass "reset.sh uses safe find-based glob cleanup (clean_glob)"
+else
+  log_fail "reset.sh missing safe find-based glob cleanup function"
+fi
+
+# Check reset.sh verifies critical tracked files including certs generators and lock file
+if grep -q 'certs/clientb/generate-expiring.sh' reset.sh && \
+   grep -q 'certs/clientc/generate-expired.sh' reset.sh && \
+   grep -q 'terraform/.terraform.lock.hcl' reset.sh; then
+  log_pass "reset.sh verifies critical tracked files (cert generators + lock file)"
+else
+  log_fail "reset.sh missing verification of critical tracked files"
+fi
+
+# Check reset.sh fails if critical files are missing (exits non-zero)
+if grep -q 'exit 1' reset.sh && grep -q 'CRITICAL FILE MISSING' reset.sh; then
+  log_pass "reset.sh fails loudly if tracked files are missing"
+else
+  log_fail "reset.sh does not fail when critical files are missing"
+fi
+
+# Check reset.sh explicitly mentions preserving certs/ directory and .terraform.lock.hcl in help text
+if grep -q 'tracked certs/' reset.sh && grep -q 'terraform/.terraform.lock.hcl' reset.sh; then
+  log_pass "reset.sh documents preservation of certs/ directory and lock file"
+else
+  log_warn "reset.sh help text could better document preservation guarantees"
+fi
+
 # --- SUMMARY ---
 echo ""
 echo "====================================================================="

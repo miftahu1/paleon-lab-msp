@@ -105,17 +105,17 @@ output "letsencrypt_dir" {
 output "deployment_summary" {
   description = "Summary of deployed resources"
   value = {
-    clean_instance_id    = aws_instance.clean.id
-    clientc_instance_id  = aws_instance.clientc.id
-    instance_type        = var.instance_type
-    clean_eip            = aws_eip.clean.public_ip
-    clientc_eip          = aws_eip.clientc.public_ip
-    domain               = var.domain_name
-    hostnames            = ["msp", "clienta", "clientb", "clientc", "clientd"]
-    open_ports           = [80, 443, 5432]
-    ssh_restricted       = var.admin_ip_cidr
-    clean_security_group = aws_security_group.clean.id
+    clean_instance_id      = aws_instance.clean.id
+    clientc_instance_id    = aws_instance.clientc.id
+    instance_type          = var.instance_type
+    clean_eip              = aws_eip.clean.public_ip
+    clientc_eip            = aws_eip.clientc.public_ip
+    domain                 = var.domain_name
+    hostnames              = ["msp", "clienta", "clientb", "clientc", "clientd"]
+    open_ports             = [80, 443, 5432]
+    ssh_restricted         = var.admin_ip_cidr
+    clean_security_group   = aws_security_group.clean.id
     clientc_security_group = aws_security_group.clientc.id
-    route53_zone         = aws_route53_zone.msp.zone_id
+    route53_zone           = aws_route53_zone.msp.zone_id
   }
 }

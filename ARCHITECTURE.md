@@ -43,9 +43,31 @@ This document describes the technical architecture for the MSP-managed multi-cli
 
 ## Security Group Design
 
+**Two separate security groups are used — one for Clean instances and one for Client C. They are NOT shared.**
+
+### Clean Instances Security Group (`sg-msp-site5-clean`)
+
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                        Security Group: sg-msp-site5                          │
+│                     Security Group: sg-msp-site5-clean                       │
+├──────────────────┬──────────────┬────────────────┬──────────────────────────┤
+│ Port             │ Protocol     │ Source         │ Purpose                  │
+├──────────────────┼──────────────┼────────────────┼──────────────────────────┤
+│ 22               │ TCP          │ admin_ip_cidr  │ SSH management           │
+│ 80               │ TCP          │ 0.0.0.0/0      │ HTTP (redirect → HTTPS)  │
+│ 443              │ TCP          │ 0.0.0.0/0      │ HTTPS                    │
+├──────────────────┼──────────────┼────────────────┼──────────────────────────┤
+│ ALL OTHER        │ ANY          │ DENIED         │ Implicit deny            │
+└──────────────────┴──────────────┴────────────────┴──────────────────────────┘
+```
+
+**NOTABLE: Port 5432 is NOT open on the Clean security group.**
+
+### Client C Security Group (`sg-msp-site5-clientc`)
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                     Security Group: sg-msp-site5-clientc                     │
 ├──────────────────┬──────────────┬────────────────┬──────────────────────────┤
 │ Port             │ Protocol     │ Source         │ Purpose                  │
 ├──────────────────┼──────────────┼────────────────┼──────────────────────────┤
@@ -53,7 +75,6 @@ This document describes the technical architecture for the MSP-managed multi-cli
 │ 80               │ TCP          │ 0.0.0.0/0      │ HTTP (redirect → HTTPS)  │
 │ 443              │ TCP          │ 0.0.0.0/0      │ HTTPS                    │
 │ 5432             │ TCP          │ 0.0.0.0/0      │ Dummy PostgreSQL listener│
-│                  │              │                │ (Client C test only)     │
 ├──────────────────┼──────────────┼────────────────┼──────────────────────────┤
 │ ALL OTHER        │ ANY          │ DENIED         │ Implicit deny            │
 └──────────────────┴──────────────┴────────────────┴──────────────────────────┘
@@ -61,6 +82,12 @@ This document describes the technical architecture for the MSP-managed multi-cli
 
 ### Explicitly CLOSED Ports (Scanner Verification)
 21, 23, 25, 110, 143, 445, 3389, 5900, 6379, 8080, 8443, 27017
+
+### Architecture Note
+The Clean and Client C instances use **separate security groups** and **separate EIPs**. This ensures:
+- Port 5432 (dummy PostgreSQL) is ONLY exposed on Client C
+- Clean instances (MSP, Client A, B, D) have no database port exposure
+- Role-based posture is enforced at the network level, not just application level
 
 ---
 
@@ -141,12 +168,16 @@ openssl req -x509 -newkey rsa:2048 -nodes \
   -keyout clientb.key -out clientb.crt \
   -days 10 -subj "/CN=clientb.paleon-lab-msp.com"
 
-# Client C - Expired (set notAfter to past)
-openssl req -x509 -newkey rsa:2048 -nodes \
-  -keyout clientc.key -out clientc.crt \
-  -days -1 -subj "/CN=clientc.paleon-lab-msp.com" \
-  -startdate "$(date -d '30 days ago' +'%Y%m%d%H%M%S')Z" \
-  -enddate "$(date -d '1 day ago' +'%Y%m%d%H%M%S')Z"
+# Client C - Expired (deterministic: parent test CA + explicit validity window)
+# The actual implementation uses a dedicated CA with explicit startdate/enddate
+# to guarantee the certificate is expired (notAfter in the past).
+# See certs/clientc/generate-expired.sh for the full implementation.
+#
+# Summary of the deterministic approach:
+# 1. Generate a parent test CA (clientc-ca.key / clientc-ca.crt)
+# 2. Generate a CSR for clientc
+# 3. Sign with the CA using explicit -startdate (30 days ago) and -enddate (1 day ago)
+# 4. This guarantees notAfter is in the past regardless of system clock
 ```
 
 ### TLS Handshake Observability

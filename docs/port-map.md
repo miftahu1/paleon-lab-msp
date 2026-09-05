@@ -4,19 +4,42 @@
 
 This document defines the exact port exposure for the MSP test site. The scanner performs TCP-connect scans across common ports; this map ensures deterministic results.
 
----
-
-## Public Ports (Internet-Facing)
-
-| Port | Protocol | Service | Exposure | Client | Purpose |
-|------|----------|---------|----------|--------|---------|
-| 80 | TCP | HTTP | **Public (0.0.0.0/0)** | All | HTTP redirect to HTTPS |
-| 443 | TCP | HTTPS | **Public (0.0.0.0/0)** | All | Primary web service |
-| 5432 | TCP | PostgreSQL | **Public (0.0.0.0/0)** | **Client C only** | **Intentional dummy listener** |
+**IMPORTANT: Two separate security groups are used — one for Clean instances and one for Client C. They are NOT shared. This ensures port 5432 is ONLY exposed on Client C.**
 
 ---
 
-## Management Ports (Restricted)
+## Clean Instances Security Group (`sg-msp-site5-clean`)
+*Used by: MSP Parent, Client A, Client B, Client D*
+
+### Public Ports (Internet-Facing)
+
+| Port | Protocol | Service | Exposure | Purpose |
+|------|----------|---------|----------|---------|
+| 80 | TCP | HTTP | **Public (0.0.0.0/0)** | HTTP redirect to HTTPS |
+| 443 | TCP | HTTPS | **Public (0.0.0.0/0)** | Primary web service |
+
+### Management Ports (Restricted)
+
+| Port | Protocol | Service | Exposure | Purpose |
+|------|----------|---------|----------|---------|
+| 22 | TCP | SSH | **admin_ip_cidr only** | Instance management |
+
+**NOTABLE: Port 5432 is NOT open on the Clean security group.**
+
+---
+
+## Client C Security Group (`sg-msp-site5-clientc`)
+*Used by: Client C only*
+
+### Public Ports (Internet-Facing)
+
+| Port | Protocol | Service | Exposure | Purpose |
+|------|----------|---------|----------|---------|
+| 80 | TCP | HTTP | **Public (0.0.0.0/0)** | HTTP redirect to HTTPS |
+| 443 | TCP | HTTPS | **Public (0.0.0.0/0)** | Primary web service |
+| 5432 | TCP | PostgreSQL | **Public (0.0.0.0/0)** | **Intentional dummy listener** |
+
+### Management Ports (Restricted)
 
 | Port | Protocol | Service | Exposure | Purpose |
 |------|----------|---------|----------|---------|
@@ -26,7 +49,7 @@ This document defines the exact port exposure for the MSP test site. The scanner
 
 ## Explicitly CLOSED Ports (Scanner Verification)
 
-The following common scanner ports MUST remain closed (no listener, security group deny):
+The following common scanner ports MUST remain closed on BOTH security groups (no listener, security group deny):
 
 | Port | Service | Reason |
 |------|---------|--------|
@@ -45,7 +68,7 @@ The following common scanner ports MUST remain closed (no listener, security gro
 
 ---
 
-## Security Group Rules (Terraform)
+## Security Group Rules (Terraform) — Clean Instances (`sg-msp-site5-clean`)
 
 ```hcl
 # Public HTTP
@@ -66,7 +89,41 @@ ingress {
   description = "HTTPS"
 }
 
-# Intentional Database Port (Client C Test)
+# SSH Management
+ingress {
+  from_port   = 22
+  to_port     = 22
+  protocol    = "tcp"
+  cidr_blocks = [var.admin_ip_cidr]
+  description = "SSH restricted to admin"
+}
+
+# Implicit deny for all other ports (default security group behavior)
+# NOTE: NO 5432 rule on Clean security group
+```
+
+## Security Group Rules (Terraform) — Client C (`sg-msp-site5-clientc`)
+
+```hcl
+# Public HTTP
+ingress {
+  from_port   = 80
+  to_port     = 80
+  protocol    = "tcp"
+  cidr_blocks = ["0.0.0.0/0"]
+  description = "HTTP redirect"
+}
+
+# Public HTTPS
+ingress {
+  from_port   = 443
+  to_port     = 443
+  protocol    = "tcp"
+  cidr_blocks = ["0.0.0.0/0"]
+  description = "HTTPS"
+}
+
+# Intentional Database Port (Client C Test ONLY)
 ingress {
   from_port   = 5432
   to_port     = 5432

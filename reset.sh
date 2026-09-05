@@ -24,12 +24,14 @@ echo ""
 echo "This script will:"
 echo "  - Remove all local build artifacts and temporary files"
 echo "  - Restore any modified tracked files to their git state"
-echo "  - Clean up generated certificates and keys"
-echo "  - Remove Terraform state files (local only)"
+echo "  - Clean up generated certificates and keys (in tmp/ only)"
+echo "  - Remove Terraform state files (local only, preserves .terraform.lock.hcl)"
 echo ""
 echo "This script will NOT:"
 echo "  - Destroy or modify any AWS resources"
 echo "  - Modify your git commit history"
+echo "  - Remove the tracked certs/ directory (contains source generator scripts)"
+echo "  - Remove terraform/.terraform.lock.hcl (tracked lock file)"
 echo "  - Remove untracked files that are part of the repository design"
 echo ""
 read -p "Continue? (y/N) " -n 1 -r
@@ -45,7 +47,31 @@ log_info "Starting repository reset..."
 # Track what we clean
 CLEANED=0
 
-# Function to clean a path if it exists
+# Function to safely clean files matching a pattern within a directory
+# Uses find to avoid glob expansion issues and limit scope to this repo
+clean_glob() {
+  local dir="$1"
+  local pattern="$2"
+  local desc="$3"
+  local count=0
+
+  if [[ ! -d "$dir" ]]; then
+    return 0
+  fi
+
+  # Use find with -maxdepth to limit recursion depth for safety
+  while IFS= read -r -d '' file; do
+    if [[ -e "$file" ]]; then
+      rm -rf "$file"
+      log_pass "Removed: $file ($desc)"
+      count=$((count + 1))
+    fi
+  done < <(find "$dir" -maxdepth 3 -name "$pattern" -print0 2>/dev/null || true)
+
+  CLEANED=$((CLEANED + count))
+}
+
+# Function to clean a specific path if it exists (for explicit known paths)
 clean_path() {
   local path="$1"
   local desc="$2"
@@ -56,30 +82,31 @@ clean_path() {
   fi
 }
 
-# --- 1. Terraform local state and artifacts ---
+# --- 1. Terraform local state and artifacts (preserving .terraform.lock.hcl) ---
 log_info "=== Cleaning Terraform artifacts ==="
 clean_path "terraform/.terraform" "Terraform provider cache"
-clean_path "terraform/.terraform.lock.hcl" "Terraform lock file"
+# NOTE: terraform/.terraform.lock.hcl is TRACKED - must NOT be deleted
 clean_path "terraform/terraform.tfstate" "Local Terraform state"
 clean_path "terraform/terraform.tfstate.backup" "Terraform state backup"
-clean_path "terraform/*.tfplan" "Terraform plan files"
+# Safe glob cleanup for plan files within terraform/ directory
+clean_glob "terraform" "*.tfplan" "Terraform plan files"
 clean_path "terraform/terraform.tfvars" "Terraform variables file (if exists)"
 
-# --- 2. Generated certificates and keys ---
+# --- 2. Generated certificates and keys (in tmp/ only, NOT the tracked certs/ directory) ---
 log_info "=== Cleaning generated certificates ==="
-clean_path "certs" "Generated certificates directory"
-# Note: The certs/ directory in the repo root is for generators, not generated certs
-# Generated certs go to /etc/ssl/certs on the EC2 instance
+# The tracked certs/ directory contains SOURCE GENERATOR SCRIPTS - NEVER DELETE
+# Generated runtime certificates go to tmp/ (ignored by .gitignore) or instance runtime paths
+clean_path "tmp" "Generated certificates and temporary files"
 
 # --- 3. Log files ---
 log_info "=== Cleaning log files ==="
-clean_path "*.log" "Log files in repo root"
+clean_glob "." "*.log" "Log files in repo root"
 
 # --- 4. Temporary files ---
 log_info "=== Cleaning temporary files ==="
-clean_path "*.tmp" "Temporary files"
-clean_path "*.bak" "Backup files"
-clean_path "*~" "Editor backup files"
+clean_glob "." "*.tmp" "Temporary files"
+clean_glob "." "*.bak" "Backup files"
+clean_glob "." "*~" "Editor backup files"
 clean_path ".DS_Store" "macOS metadata files"
 clean_path "Thumbs.db" "Windows thumbnail cache"
 
@@ -87,14 +114,14 @@ clean_path "Thumbs.db" "Windows thumbnail cache"
 log_info "=== Cleaning IDE/editor directories ==="
 clean_path ".vscode" "VS Code settings (if not committed)"
 clean_path ".idea" "JetBrains IDE settings"
-clean_path "*.swp" "Vim swap files"
-clean_path "*.swo" "Vim swap files"
+clean_glob "." "*.swp" "Vim swap files"
+clean_glob "." "*.swo" "Vim swap files"
 
 # --- 6. Node/Python cache (if any) ---
 log_info "=== Cleaning language caches ==="
 clean_path "node_modules" "Node modules"
 clean_path "__pycache__" "Python cache"
-clean_path "*.pyc" "Python compiled files"
+clean_glob "." "*.pyc" "Python compiled files"
 clean_path ".pytest_cache" "Pytest cache"
 clean_path ".mypy_cache" "Mypy cache"
 
@@ -142,7 +169,7 @@ else
   log_pass "No unexpected untracked files"
 fi
 
-# --- 9. Verify critical files still exist ---
+# --- 9. Verify critical tracked files still exist ---
 log_info "=== Verifying critical repository files ==="
 CRITICAL_FILES=(
   "README.md"
@@ -186,6 +213,11 @@ CRITICAL_FILES=(
   "docs/dns-records.md"
   "docs/tls-architecture.md"
   "docs/port-map.md"
+  # CRITICAL: Tracked source generator scripts in certs/ directory
+  "certs/clientb/generate-expiring.sh"
+  "certs/clientc/generate-expired.sh"
+  # CRITICAL: Terraform lock file (tracked)
+  "terraform/.terraform.lock.hcl"
 )
 
 MISSING=0
@@ -200,6 +232,8 @@ if [[ $MISSING -eq 0 ]]; then
   log_pass "All critical files present"
 else
   log_error "$MISSING critical files missing - repository may be corrupted"
+  log_error "RESET FAILED - tracked files were deleted"
+  exit 1
 fi
 
 # --- 10. Make scripts executable ---
@@ -207,6 +241,7 @@ log_info "=== Ensuring scripts are executable ==="
 chmod +x validate.sh reset.sh verify.sh 2>/dev/null || true
 chmod +x terraform/user_data.sh terraform/bootstrap-backend.sh 2>/dev/null || true
 chmod +x terraform/scripts/*.sh 2>/dev/null || true
+chmod +x certs/clientb/generate-expiring.sh certs/clientc/generate-expired.sh 2>/dev/null || true
 log_pass "Scripts marked executable"
 
 # --- SUMMARY ---

@@ -84,21 +84,68 @@ DOMAIN="clientc.paleon-lab-msp.com"
 # Generate private key
 openssl genrsa -out "${CERT_DIR}/${DOMAIN}.key" 2048
 
-# Generate self-signed certificate with past expiration
-# notBefore: 30 days ago
-# notAfter: 1 day ago (expired)
-openssl req -x509 -new -key "${CERT_DIR}/${DOMAIN}.key" \
-  -out "${CERT_DIR}/${DOMAIN}.crt" \
-  -days -1 \
+# Generate deterministic expired certificate using parent test CA
+# This approach guarantees notAfter is in the past by using explicit
+# -startdate and -enddate when signing with the CA.
+# The -days -1 approach is NOT used because it is unreliable with startdate/enddate.
+
+# 1. Create parent test CA
+openssl genrsa -out "${CERT_DIR}/clientc-ca.key" 2048
+openssl req -x509 -new -key "${CERT_DIR}/clientc-ca.key" \
+  -sha256 -days 3650 \
+  -subj "/CN=Paleon Client C Test Root" \
+  -out "${CERT_DIR}/clientc-ca.crt" \
+  -addext "basicConstraints=critical,CA:TRUE" \
+  -addext "keyUsage=critical,keyCertSign,cRLSign"
+
+# 2. Generate CSR for clientc
+openssl req -new -key "${CERT_DIR}/${DOMAIN}.key" \
   -subj "/CN=${DOMAIN}" \
   -addext "subjectAltName=DNS:${DOMAIN}" \
-  -startdate "$(date -d '30 days ago' +'%Y%m%d%H%M%S')Z" \
-  -enddate "$(date -d '1 day ago' +'%Y%m%d%H%M%S')Z"
+  -out "${CERT_DIR}/${DOMAIN}.csr"
+
+# 3. Create CA config
+cat > "${CERT_DIR}/clientc-ca.cnf" <<EOF
+[ ca ]
+default_ca = CA_default
+
+[ CA_default ]
+private_key = ${CERT_DIR}/clientc-ca.key
+certificate = ${CERT_DIR}/clientc-ca.crt
+database = ${CERT_DIR}/clientc-ca.index
+new_certs_dir = ${CERT_DIR}
+serial = ${CERT_DIR}/clientc-ca.serial
+default_md = sha256
+policy = policy_any
+x509_extensions = v3_server
+
+[ policy_any ]
+commonName = supplied
+
+[ v3_server ]
+subjectAltName = DNS:${DOMAIN}
+basicConstraints = CA:FALSE
+keyUsage = critical, digitalSignature, keyEncipherment
+extendedKeyUsage = serverAuth
+EOF
+
+# 4. Initialize CA database
+: > "${CERT_DIR}/clientc-ca.index"
+printf '1000\n' > "${CERT_DIR}/clientc-ca.serial"
+
+# 5. Sign with explicit validity window (notBefore: 30 days ago, notAfter: 1 day ago)
+START_DATE=$(date -u -d '30 days ago' +'%Y%m%d%H%M%SZ')
+END_DATE=$(date -u -d '1 day ago' +'%Y%m%d%H%M%SZ')
+openssl ca -batch -config "${CERT_DIR}/clientc-ca.cnf" \
+  -in "${CERT_DIR}/${DOMAIN}.csr" \
+  -out "${CERT_DIR}/${DOMAIN}.crt" \
+  -startdate "${START_DATE}" \
+  -enddate "${END_DATE}"
 
 # Set permissions
 chmod 640 "${CERT_DIR}/${DOMAIN}.key"
 chmod 644 "${CERT_DIR}/${DOMAIN}.crt"
-chown root:ssl-cert "${CERT_DIR}/${DOMAIN}.key" "${CERT_DIR}/${DOMAIN}.crt"
+chown root:ssl-cert "${CERT_DIR}/${DOMAIN}.key" "${CERT_DIR}/${DOMAIN}.crt" 2>/dev/null || true
 
 echo "Generated ${DOMAIN} certificate (EXPIRED)"
 openssl x509 -in "${CERT_DIR}/${DOMAIN}.crt" -noout -dates
